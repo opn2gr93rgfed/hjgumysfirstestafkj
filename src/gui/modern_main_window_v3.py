@@ -18,6 +18,7 @@ from tkinter import filedialog
 import json
 import os
 import threading
+import importlib
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Literal
@@ -27,10 +28,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.api.octobrowser_api import OctobrowserAPI
-from src.generator.script_generator import ScriptGenerator
-from src.generator.playwright_script_generator import PlaywrightScriptGenerator
-from src.generator.no_otp_generator import NoOTPGenerator
-from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
 from src.utils.playwright_parser import PlaywrightParser
@@ -41,6 +38,21 @@ from src.data.dynamic_field import DynamicFieldManager
 # Modern UI Components
 from .themes import ModernTheme, ButtonStyles
 from .components import ToastManager, DataTab, ProxyTab, OctoAPITab
+
+
+def discover_providers():
+    """Автоопределение провайдеров из папки src/providers/"""
+    providers_dir = Path(__file__).parent.parent / 'providers'
+    if not providers_dir.exists():
+        return ['default_no_otp']
+
+    providers = []
+    for item in providers_dir.iterdir():
+        if item.is_dir() and not item.name.startswith('_'):
+            if (item / 'generator.py').exists() and (item / 'runner.py').exists():
+                providers.append(item.name)
+
+    return sorted(providers) if providers else ['default_no_otp']
 
 
 class ModernAppV3(ctk.CTk):
@@ -69,14 +81,10 @@ class ModernAppV3(ctk.CTk):
 
         # === КОМПОНЕНТЫ ===
         self.api: Optional[OctobrowserAPI] = None
-        self.generator = ScriptGenerator()
-        self.playwright_generator = PlaywrightScriptGenerator()
-        self.no_otp_generator = NoOTPGenerator()
-        self.runner = ScriptRunner()
-        self.runner.set_output_callback(self.append_log)
+        self.available_providers = discover_providers()
+        self.current_provider = self.available_providers[0]
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
-        # PlaywrightParser с поддержкой OTP (передаем otp_enabled из конфига)
         otp_enabled = self.config.get('otp', {}).get('enabled', False)
         self.playwright_parser = PlaywrightParser(otp_enabled=otp_enabled)
         if not otp_enabled:
@@ -396,21 +404,22 @@ class ModernAppV3(ctk.CTk):
 
         ctk.CTkLabel(
             selector_frame,
-            text="Script Generator:",
+            text="Provider:",
             font=(ModernTheme.FONT['family'], 12, 'bold'),
             text_color=self.theme['text_primary']
         ).pack(side="left", padx=(0, 12))
 
-        self.generator_selector = ctk.CTkComboBox(
+        self.provider_selector = ctk.CTkComboBox(
             selector_frame,
-            values=["No OTP (default)", "With OTP (future)"],
-            width=200,
+            values=self.available_providers,
+            width=250,
             height=36,
             font=(ModernTheme.FONT['family'], 11),
-            state="readonly"
+            state="readonly",
+            command=self.on_provider_changed
         )
-        self.generator_selector.set("No OTP (default)")
-        self.generator_selector.pack(side="left")
+        self.provider_selector.set(self.current_provider)
+        self.provider_selector.pack(side="left")
 
         # Control buttons
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
@@ -801,17 +810,18 @@ class ModernAppV3(ctk.CTk):
 
             print(f"[DEBUG] Длина user_code: {len(user_code)} символов")  # DEBUG
 
-            # Выбрать генератор
-            selected_generator = self.generator_selector.get()
-            if "No OTP" in selected_generator:
-                generator = self.no_otp_generator
-                self.append_log("[INFO] Генерация Playwright скрипта (NO OTP)...", "INFO")
-            else:
-                generator = self.playwright_generator
-                self.append_log("[INFO] Генерация Playwright скрипта (WITH OTP)...", "INFO")
+            # Динамический импорт провайдера
+            selected_provider = self.provider_selector.get()
+            self.append_log(f"[INFO] Генерация Playwright скрипта (Provider: {selected_provider})...", "INFO")
 
-            # Генерация скрипта
-            generated_script = generator.generate_script(user_code, config)
+            try:
+                generator_module = importlib.import_module(f"src.providers.{selected_provider}.generator")
+                generator = generator_module.Generator()
+                generated_script = generator.generate_script(user_code, config)
+            except Exception as e:
+                self.append_log(f"[ERROR] Не удалось загрузить провайдер {selected_provider}: {e}", "ERROR")
+                self.toast.error(f"❌ Ошибка загрузки провайдера: {e}")
+                return
 
             # Вставить в редактор
             self.code_editor.delete("1.0", "end")
@@ -872,20 +882,19 @@ class ModernAppV3(ctk.CTk):
             self.status_label.configure(text="▶️ Running...")
             self.progress_bar.set(0.5)
 
-            # Запуск в потоке
-            def run_thread():
-                try:
-                    self.runner.run_script(str(script_path))
-                    self.after(0, lambda: self.toast.success("✅ Скрипт завершен"))
-                    self.after(0, lambda: self.append_log("[SUCCESS] Выполнение завершено", "SUCCESS"))
-                except Exception as e:
-                    self.after(0, lambda: self.toast.error(f"❌ Ошибка: {e}"))
-                    self.after(0, lambda: self.append_log(f"[ERROR] {e}", "ERROR"))
-                finally:
-                    self.after(0, self.script_finished)
-
-            thread = threading.Thread(target=run_thread, daemon=True)
-            thread.start()
+            # Динамический импорт runner из провайдера
+            selected_provider = self.provider_selector.get()
+            try:
+                runner_module = importlib.import_module(f"src.providers.{selected_provider}.runner")
+                runner = runner_module.Runner()
+                runner.set_output_callback(self.append_log)
+                runner.run(str(script_path))
+                self.current_runner = runner
+            except Exception as e:
+                self.toast.error(f"❌ Ошибка загрузки runner: {e}")
+                self.append_log(f"[ERROR] {e}", "ERROR")
+                self.script_finished()
+                return
 
             self.toast.info("▶️ Скрипт запущен")
 
@@ -896,12 +905,19 @@ class ModernAppV3(ctk.CTk):
     def stop_script(self):
         """Остановка скрипта"""
         try:
-            self.runner.stop()
+            if hasattr(self, 'current_runner'):
+                self.current_runner.stop()
             self.toast.warning("⏹️ Скрипт остановлен")
             self.append_log("[WARNING] Скрипт остановлен пользователем", "WARNING")
             self.script_finished()
         except Exception as e:
             self.toast.error(f"Ошибка остановки: {e}")
+
+    def on_provider_changed(self, selected_provider):
+        """Обработчик смены провайдера"""
+        self.current_provider = selected_provider
+        self.append_log(f"[INFO] Провайдер изменен: {selected_provider}", "INFO")
+        print(f"[PROVIDER] Выбран провайдер: {selected_provider}")
 
     def script_finished(self):
         """Завершение скрипта"""

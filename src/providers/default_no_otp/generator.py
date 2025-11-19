@@ -1,4 +1,5 @@
 """
+Provider: default_no_otp
 Генератор Playwright скриптов БЕЗ OTP для автоматизации с Octobrowser
 """
 
@@ -6,7 +7,7 @@ import json
 from typing import Dict, List
 
 
-class NoOTPGenerator:
+class Generator:
     """Генератор Playwright скриптов без OTP/SMS"""
 
     def generate_script(self, user_code: str, config: Dict) -> str:
@@ -20,7 +21,6 @@ class NoOTPGenerator:
         Returns:
             Полный исполняемый Python скрипт
         """
-        # Извлечь настройки
         api_token = config.get('api_token', '')
         use_proxy = config.get('use_proxy', False)
         proxy_config = config.get('proxy', {})
@@ -30,7 +30,6 @@ class NoOTPGenerator:
         target = config.get('target', 'library')
         profile_config = config.get('profile', {})
 
-        # Генерация скрипта
         script = self._generate_imports()
         script += self._generate_config(api_token, proxy_config, use_proxy, csv_filename, csv_data, csv_embed_mode, target)
         script += self._generate_octobrowser_functions(profile_config)
@@ -41,14 +40,13 @@ class NoOTPGenerator:
         return script
 
     def _generate_imports(self) -> str:
-        """Генерирует импорты"""
         return '''#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Автоматически сгенерированный скрипт автоматизации
 Фреймворк: Playwright (SYNC API)
 Браузер: Octobrowser (через CDP)
-Генератор: NO OTP
+Provider: default_no_otp
 """
 
 import csv
@@ -61,7 +59,6 @@ from typing import Dict, List, Optional
 
     def _generate_config(self, api_token: str, proxy_config: Dict, use_proxy: bool,
                          csv_filename: str, csv_data: List[Dict], csv_embed_mode: bool, target: str) -> str:
-        """Генерирует конфигурацию"""
         config = f'''# ============================================================
 # КОНФИГУРАЦИЯ
 # ============================================================
@@ -105,7 +102,6 @@ PROXY_PASSWORD = "{proxy_config.get('password', '')}"
         return config
 
     def _generate_octobrowser_functions(self, profile_config: Dict = None) -> str:
-        """Генерирует функции работы с Octobrowser API"""
         if profile_config is None:
             profile_config = {}
 
@@ -183,7 +179,6 @@ def delete_profile(profile_uuid: str):
 '''
 
     def _generate_csv_loader(self) -> str:
-        """Генерирует функцию загрузки CSV"""
         return '''# ============================================================
 # ЗАГРУЗКА CSV ДАННЫХ
 # ============================================================
@@ -206,7 +201,6 @@ def load_csv_data() -> List[Dict]:
 '''
 
     def _generate_main_iteration(self, user_code: str, target: str) -> str:
-        """Генерирует основную функцию итерации"""
         return f'''# ============================================================
 # ОСНОВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
 # ============================================================
@@ -231,7 +225,6 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
 '''
 
     def _generate_main_function(self) -> str:
-        """Генерирует главную функцию"""
         return '''# ============================================================
 # ГЛАВНАЯ ФУНКЦИЯ
 # ============================================================
@@ -314,7 +307,6 @@ if __name__ == "__main__":
 '''
 
     def _indent_code(self, code: str, spaces: int) -> str:
-        """Добавить отступы к коду"""
         indent = ' ' * spaces
         lines = code.split('\n')
         return '\n'.join(indent + line if line.strip() else '' for line in lines)
