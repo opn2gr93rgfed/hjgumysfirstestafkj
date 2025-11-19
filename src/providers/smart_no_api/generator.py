@@ -96,8 +96,8 @@ PROXY_PASSWORD = "{proxy_config.get('password', '')}"
 '''
 
         config += '''
-# Таймауты
-DEFAULT_TIMEOUT = 30000  # 30 секунд
+# Таймауты (оптимизированы для быстрого fail-over при неправильном флоу)
+DEFAULT_TIMEOUT = 10000  # 10 секунд (было 30s, уменьшено для быстрых фейлов)
 NAVIGATION_TIMEOUT = 60000  # 60 секунд
 
 '''
@@ -372,7 +372,7 @@ def smart_fill(page, selectors_list, value, name="field", timeout=10000):
     return False
 
 
-def check_heading(page, expected_texts, timeout=15000):
+def check_heading(page, expected_texts, timeout=5000):
     """
     Проверка наличия заголовка с альтернативными текстами
 
@@ -393,7 +393,7 @@ def check_heading(page, expected_texts, timeout=15000):
     Args:
         page: Playwright page
         expected_texts: Список альтернативных текстов заголовка (может быть строка или список)
-        timeout: Таймаут в миллисекундах (по умолчанию 15 секунд)
+        timeout: Таймаут в миллисекундах (по умолчанию 5 секунд - БЫСТРАЯ проверка)
 
     Returns:
         True если заголовок найден, False если не найден (не бросает exception!)
@@ -408,6 +408,8 @@ def check_heading(page, expected_texts, timeout=15000):
             heading = page.get_by_role("heading", name=text, exact=True)
             heading.wait_for(state="visible", timeout=timeout)
             print(f"[CHECK_HEADING] [OK] Найден заголовок (exact): {text}")
+            # Small delay for page stability after heading appears
+            time.sleep(0.5)
             return True
         except Exception as e:
             # If exact match failed, try substring match
@@ -415,6 +417,8 @@ def check_heading(page, expected_texts, timeout=15000):
                 heading = page.get_by_role("heading", name=text, exact=False)
                 heading.wait_for(state="visible", timeout=timeout)
                 print(f"[CHECK_HEADING] [OK] Найден заголовок (partial): {text}")
+                # Small delay for page stability after heading appears
+                time.sleep(0.5)
                 return True
             except:
                 # Continue to next alternative
@@ -423,8 +427,10 @@ def check_heading(page, expected_texts, timeout=15000):
     # If no heading found, log warning but CONTINUE execution
     # This allows handling of dynamic flows, A/B tests, skipped questions, etc.
     print(f"[CHECK_HEADING] [WARNING] Заголовок не найден из списка: {expected_texts}")
-    print(f"[CHECK_HEADING] [INFO] Это может быть нормально - сайт может показывать вопросы в разном порядке или пропускать их.")
+    print(f"[CHECK_HEADING] [INFO] Это может быть нормально - сайт может показывать вопросы в разном порядке.")
     print(f"[CHECK_HEADING] [INFO] Продолжаем выполнение...")
+    # Even if heading not found, give page a moment to stabilize
+    time.sleep(0.3)
     return False
 
 
@@ -546,8 +552,8 @@ def load_csv_data() -> List[Dict]:
                     if in_run_function and base_indent is not None:
                         current_indent = max(0, current_indent - base_indent)
 
-                    # Generate check_heading call with increased timeout
-                    transformed_line = ' ' * current_indent + f'check_heading(page, ["{heading_text}"], timeout=15000)'
+                    # Generate check_heading call with fast timeout (5s) for quick fail-over
+                    transformed_line = ' ' * current_indent + f'check_heading(page, ["{heading_text}"], timeout=5000)'
                     cleaned_lines.append(transformed_line)
                     continue
                 else:
