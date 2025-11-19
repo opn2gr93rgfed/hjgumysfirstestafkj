@@ -694,18 +694,24 @@ def load_csv_data() -> List[Dict]:
             if is_action and not is_critical:
                 # Extract action description for logging (sanitize quotes)
                 action_desc = self._extract_action_description(stripped)
-                # Replace curly quotes and escape quotes for safe f-string usage
+                # Replace curly quotes for safe f-string usage in logs
                 action_desc = action_desc.replace("'", "'").replace("'", "'").replace('"', '\\"')
 
+                # IMPORTANT: Replace curly quotes in the actual code too!
+                # Playwright Recorder can generate code with curly quotes like "Let's go"
+                sanitized_code = stripped.replace("'", "'").replace("'", "'")
+
                 wrapped_lines.append(f"{indent_str}try:")
-                wrapped_lines.append(f"{indent_str}    {stripped}")
+                wrapped_lines.append(f"{indent_str}    {sanitized_code}")
                 wrapped_lines.append(f"{indent_str}except PlaywrightTimeout:")
                 wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [WARNING] Timeout: {action_desc}")')
                 wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...")')
                 wrapped_lines.append(f"{indent_str}    pass  # Continue execution")
             else:
                 # Keep as-is (critical actions or non-actions)
-                wrapped_lines.append(line)
+                # But still sanitize curly quotes in critical code
+                sanitized_line = line.replace("'", "'").replace("'", "'")
+                wrapped_lines.append(sanitized_line)
 
             i += 1
 
