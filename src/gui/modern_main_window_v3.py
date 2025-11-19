@@ -384,7 +384,6 @@ class ModernAppV3(ctk.CTk):
         step2_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=8)
         step2_frame.grid_propagate(False)
         step2_frame.grid_columnconfigure(1, weight=1)
-        step2_frame.grid_columnconfigure(2, weight=0)
 
         ctk.CTkLabel(
             step2_frame,
@@ -400,16 +399,31 @@ class ModernAppV3(ctk.CTk):
             text_color=self.theme['text_primary']
         ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
 
+        # Кнопки для ШАГ 2
+        step2_buttons_frame = ctk.CTkFrame(step2_frame, fg_color="transparent")
+        step2_buttons_frame.grid(row=0, column=2, padx=20, pady=15, sticky="e")
+
         ctk.CTkButton(
-            step2_frame,
-            text="📂 Загрузить из файла",
+            step2_buttons_frame,
+            text="📂 Загрузить файл",
             command=self.import_from_file,
             height=40,
-            width=200,
+            width=150,
             corner_radius=10,
             fg_color=self.theme['accent_info'],
             font=(ModernTheme.FONT['family'], 11, 'bold')
-        ).grid(row=0, column=2, padx=20, pady=15, sticky="e")
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            step2_buttons_frame,
+            text="✨ Автопарсинг → CSV",
+            command=self.auto_parse_data_from_editor,
+            height=40,
+            width=170,
+            corner_radius=10,
+            fg_color=self.theme['accent_success'],
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).pack(side="left", padx=(6, 0))
 
         # ========== ШАГ 3: ЗАГРУЗИТЬ CSV ==========
         step3_frame = ctk.CTkFrame(
@@ -929,6 +943,29 @@ class ModernAppV3(ctk.CTk):
 
         except Exception as e:
             self.append_log(f"[ERROR] Ошибка парсинга данных: {e}", "ERROR")
+
+    def auto_parse_data_from_editor(self):
+        """
+        Автопарсинг данных из редактора кода в CSV
+
+        Вызывается кнопкой "✨ Автопарсинг → CSV" в ШАГ 2
+        """
+        code = self.code_editor.get("1.0", "end-1c")
+
+        if not code or not code.strip():
+            self.toast.warning("⚠️ Сначала вставьте код автоматизации!")
+            return
+
+        # Проверить что это не пустой шаблон
+        if code.strip().startswith("# Пример") or len(code.strip()) < 50:
+            self.toast.warning("⚠️ Вставьте реальный код Playwright с действиями")
+            return
+
+        self.toast.info("🔍 Анализирую код...")
+        self.append_log("[AUTOPARSE] Запущен автопарсинг данных из кода", "INFO")
+
+        # Вызвать основную функцию парсинга
+        self.auto_parse_data(code)
 
     # ========================================================================
     # ГЕНЕРАЦИЯ СКРИПТА
