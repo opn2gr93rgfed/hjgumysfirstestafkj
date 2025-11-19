@@ -186,23 +186,41 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
 def start_profile(profile_uuid: str) -> Optional[Dict]:
     """Запустить профиль и получить CDP endpoint"""
     url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/start"
-    try:
-        print(f"[PROFILE] Запуск профиля: {{profile_uuid}}")
-        response = requests.get(url, timeout=30)
-        print(f"[PROFILE] Start Response Status: {{response.status_code}}")
 
-        if response.status_code == 200:
-            data = response.json()
-            print(f"[PROFILE] [OK] Профиль запущен, CDP endpoint получен")
-            return data
-        else:
-            print(f"[PROFILE] [ERROR] Ошибка запуска: {{response.status_code}} - {{response.text}}")
-            return None
-    except Exception as e:
-        print(f"[PROFILE] [ERROR] Exception при запуске: {{e}}")
-        import traceback
-        traceback.print_exc()
-        return None
+    # Retry logic для синхронизации профиля с локальным Octobrowser
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                wait_time = 2 ** (attempt - 1) * 2  # 0s, 2s, 4s, 8s, 16s
+                print(f"[PROFILE] Ожидание синхронизации профиля: {{wait_time}}s")
+                time.sleep(wait_time)
+
+            print(f"[PROFILE] Попытка запуска {{attempt+1}}/{{max_retries}}: {{profile_uuid}}")
+            response = requests.get(url, timeout=30)
+            print(f"[PROFILE] Start Response Status: {{response.status_code}}")
+
+            if response.status_code == 200:
+                data = response.json()
+                print(f"[PROFILE] [OK] Профиль запущен, CDP endpoint получен")
+                return data
+            elif response.status_code == 404:
+                # Profile not synced yet - retry
+                print(f"[PROFILE] [!] Профиль еще не синхронизирован с локальным Octobrowser")
+                continue
+            else:
+                print(f"[PROFILE] [ERROR] Ошибка запуска: {{response.status_code}} - {{response.text}}")
+                return None
+        except Exception as e:
+            print(f"[PROFILE] [ERROR] Exception при запуске: {{e}}")
+            if attempt == max_retries - 1:
+                import traceback
+                traceback.print_exc()
+            continue
+
+    print(f"[PROFILE] [ERROR] Не удалось запустить профиль после {{max_retries}} попыток")
+    print(f"[PROFILE] [!] Убедитесь что Octobrowser запущен локально (http://localhost:58888)")
+    return None
 
 
 def stop_profile(profile_uuid: str):
@@ -425,6 +443,10 @@ def main():
                 continue
 
             print(f"[PROFILE] UUID: {profile_uuid}")
+
+            # Ожидание синхронизации профиля с локальным Octobrowser
+            print("[PROFILE] Ожидание синхронизации с локальным Octobrowser (2 сек)...")
+            time.sleep(2)
 
             # Запуск профиля
             print("[PROFILE] Запуск...")

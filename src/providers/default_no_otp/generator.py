@@ -147,12 +147,29 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
 def start_profile(profile_uuid: str) -> Optional[Dict]:
     """Запустить профиль и получить debug URL"""
     url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/start"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            return response.json()
-    except Exception as e:
-        print(f"[ERROR] Start profile: {{e}}")
+
+    # Retry logic для синхронизации профиля с локальным Octobrowser
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            if attempt > 0:
+                wait_time = 2 ** (attempt - 1) * 2  # 0s, 2s, 4s, 8s, 16s
+                print(f"[PROFILE] Ожидание синхронизации: {{wait_time}}s")
+                time.sleep(wait_time)
+
+            response = requests.get(url)
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 404:
+                # Profile not synced yet - retry
+                print(f"[PROFILE] Профиль еще не синхронизирован, попытка {{attempt+1}}/{{max_retries}}")
+                continue
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"[ERROR] Start profile: {{e}}")
+            continue
+
+    print(f"[ERROR] Не удалось запустить профиль. Убедитесь что Octobrowser запущен локально")
     return None
 
 
@@ -256,6 +273,10 @@ def main():
                 continue
 
             print(f"[PROFILE] UUID: {profile_uuid}")
+
+            # Ожидание синхронизации профиля с локальным Octobrowser
+            print("[PROFILE] Ожидание синхронизации с локальным Octobrowser (2 сек)...")
+            time.sleep(2)
 
             # Запустить профиль
             print("[PROFILE] Запуск...")
