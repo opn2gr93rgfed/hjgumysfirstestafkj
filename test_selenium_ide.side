@@ -1,0 +1,93 @@
+{
+  "id": "e7368cfa-8d8b-4b40-b228-0c003abaf89c",
+  "version": "2.0",
+  "name": "w",
+  "url": "https://www.testpagekfkfe.com",
+  "tests": [{
+    "id": "76c084c3-701f-4f08-bfe1-26c8ad108354",
+    "name": "test",
+    "commands": [{
+      "id": "08c87404-0de8-4af6-8614-247fb096521b",
+      "comment": "",
+      "command": "open",
+      "target": "/",
+      "targets": [],
+      "value": ""
+    }, {
+      "id": "74244ff4-582a-44ec-ab6d-13aeef1cf12b",
+      "comment": "",
+      "command": "click",
+      "target": "id=header_nav_enroll_link_large",
+      "targets": [
+        ["id=header_nav_enroll_link_large", "id"],
+        ["linkText=Get started", "linkText"],
+        ["css=#header_nav_enroll_link_large", "css:finder"]
+      ],
+      "value": ""
+    }, {
+      "id": "ddfe5ea4-8382-4798-84d3-774425181079",
+      "comment": "",
+      "command": "type",
+      "target": "id=First name",
+      "targets": [
+        ["id=First name", "id"],
+        ["name=firstName", "name"],
+        ["css=#First\\ name", "css:finder"]
+      ],
+      "value": "Adam"
+    }, {
+      "id": "842470ea-41b8-4ba6-9068-cd85c86ac98d",
+      "comment": "",
+      "command": "type",
+      "target": "id=Last name",
+      "targets": [
+        ["id=Last name", "id"],
+        ["name=lastName", "name"],
+        ["css=#Last\\ name", "css:finder"]
+      ],
+      "value": "Fisher"
+    }, {
+      "id": "22b59cf0-d6cf-4acf-b5ee-b4ba06335956",
+      "comment": "",
+      "command": "type",
+      "target": "id=Email",
+      "targets": [
+        ["id=Email", "id"],
+        ["name=email", "name"],
+        ["css=#Email", "css:finder"]
+      ],
+      "value": "jshdgosuihgeouhgs@gmail.com"
+    }, {
+      "id": "51c013c7-29d4-4007-a3f7-e5aa3fa4b6d4",
+      "comment": "",
+      "command": "type",
+      "target": "id=Date of birth",
+      "targets": [
+        ["id=Date of birth", "id"],
+        ["name=dateOfBirth", "name"],
+        ["css=#Date\\ of\\ birth", "css:finder"]
+      ],
+      "value": "10 / 11 / 1999"
+    }, {
+      "id": "81338e25-ef3f-4b28-8e07-45ba9fe4c300",
+      "comment": "",
+      "command": "click",
+      "target": "css=.inline-flex",
+      "targets": [
+        ["css=.inline-flex", "css:finder"],
+        ["xpath=//button[@type='submit']", "xpath:attributes"]
+      ],
+      "value": ""
+    }]
+  }],
+  "suites": [{
+    "id": "6823d94a-d558-47d7-930a-5529f28a24cd",
+    "name": "Default Suite",
+    "persistSession": false,
+    "parallel": false,
+    "timeout": 300,
+    "tests": ["76c084c3-701f-4f08-bfe1-26c8ad108354"]
+  }],
+  "urls": ["https://www.testpagekfkfe.com/"],
+  "plugins": []
+}

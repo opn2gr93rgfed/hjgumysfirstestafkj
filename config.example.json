@@ -1,0 +1,10 @@
+{
+  "octobrowser": {
+    "api_base_url": "https://app.octobrowser.net/api/v2/automation",
+    "api_token": "YOUR_API_TOKEN_HERE"
+  },
+  "script_settings": {
+    "output_directory": "generated_scripts",
+    "default_automation_framework": "selenium"
+  }
+}

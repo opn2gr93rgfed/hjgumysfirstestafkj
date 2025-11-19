@@ -1,0 +1,51 @@
+{
+  "octobrowser": {
+    "api_base_url": "https://app.octobrowser.net/api/v2/automation",
+    "api_token": "aeffea9c9fcc40919aac1c9dc4eac5d0"
+  },
+  "sms": {
+    "provider": "daisysms",
+    "api_key": "",
+    "service": "ds"
+  },
+  "proxy": {
+    "enabled": false,
+    "type": "http",
+    "host": "",
+    "port": "",
+    "login": "",
+    "password": ""
+  },
+  "proxy_list": {
+    "proxies": [],
+    "rotation_mode": "sequential",
+    "retry_on_failure": true,
+    "timeout": 10
+  },
+  "octo_defaults": {
+    "tags": [],
+    "plugins": [],
+    "notes": ""
+  },
+  "fingerprint": {
+    "os": "win",
+    "webrtc": "altered",
+    "canvas_protection": true,
+    "webgl_protection": true,
+    "fonts_protection": true
+  },
+  "geolocation": {
+    "enabled": false,
+    "latitude": "",
+    "longitude": ""
+  },
+  "ui_settings": {
+    "last_csv_path": "",
+    "automation_framework": "playwright",
+    "playwright_target": "library"
+  },
+  "script_settings": {
+    "output_directory": "generated_scripts",
+    "default_automation_framework": "playwright"
+  }
+}
