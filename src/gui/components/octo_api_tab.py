@@ -695,9 +695,18 @@ class OctoAPITab(ctk.CTkScrollableFrame):
                         time.sleep(wait_time)
 
                     print(f"[TEST_START] Попытка запуска {attempt+1}/{max_retries}: {self.test_profile_uuid}")
-                    response = requests.get(
-                        f"{local_api_url}/profiles/{self.test_profile_uuid}/start",
-                        timeout=30
+
+                    # Правильный формат согласно документации Octobrowser
+                    response = requests.post(
+                        f"{local_api_url}/profiles/start",
+                        json={
+                            "uuid": self.test_profile_uuid,
+                            "debug_port": True,
+                            "headless": False,
+                            "only_local": True,
+                            "timeout": 120
+                        },
+                        timeout=120
                     )
 
                     print(f"[TEST_START] Ответ: {response.status_code}")

@@ -228,7 +228,7 @@ def check_local_api() -> bool:
 
 def start_profile(profile_uuid: str) -> Optional[Dict]:
     """Запустить профиль и получить CDP endpoint"""
-    url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/start"
+    url = f"{{LOCAL_API_URL}}/profiles/start"
 
     # Retry logic для синхронизации профиля с локальным Octobrowser
     max_retries = 8
@@ -240,7 +240,19 @@ def start_profile(profile_uuid: str) -> Optional[Dict]:
                 time.sleep(wait_time)
 
             print(f"[PROFILE] Попытка запуска {{attempt+1}}/{{max_retries}}: {{profile_uuid}}")
-            response = requests.get(url, timeout=30)
+
+            # Правильный формат согласно документации Octobrowser Local API
+            response = requests.post(
+                url,
+                json={{
+                    "uuid": profile_uuid,
+                    "debug_port": True,
+                    "headless": False,
+                    "only_local": True,
+                    "timeout": 120
+                }},
+                timeout=120
+            )
             print(f"[PROFILE] Start Response Status: {{response.status_code}}")
 
             if response.status_code == 200:
