@@ -49,9 +49,32 @@ Provider: smart_no_api (OCTOBROWSER API + PROXY + FALLBACKS)
 
 import csv
 import time
+import sys
+import asyncio
 import requests
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeout
 from typing import Dict, List, Optional
+
+# ============================================================
+# ⚠️ КРИТИЧЕСКИ ВАЖНО: Закрытие asyncio event loop для Playwright Sync API
+# ============================================================
+# Python 3.12+ на Windows автоматически создает asyncio event loop
+# Playwright Sync API НЕ МОЖЕТ работать внутри event loop
+# Закрываем loop перед вызовом sync_playwright()
+# ============================================================
+if sys.platform == 'win32' and sys.version_info >= (3, 12):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.stop()
+        loop.close()
+    except RuntimeError:
+        pass  # Loop already closed
+    except Exception:
+        pass  # Ignore other errors
+    # Устанавливаем политику event loop для Windows
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.set_event_loop(None)  # Убираем текущий event loop
 
 '''
 
