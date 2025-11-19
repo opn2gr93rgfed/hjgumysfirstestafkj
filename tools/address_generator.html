@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Random Florida Data Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        h2 {
+            color: #333;
+            text-align: center;
+        }
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: block;
+            margin: 20px auto;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #dataContainer {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .field {
+            margin: 15px 0;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .field:hover {
+            background: #e8f5e9;
+        }
+        .field-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .field-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            user-select: all;
+        }
+        .copy-hint {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: #999;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .field:hover .copy-hint {
+            opacity: 1;
+        }
+        .copied {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .copied.show {
+            opacity: 1;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+<h2>🎲 Random Data Generator (Florida – 33071)</h2>
+
+<button onclick="generateData()">Generate New Data</button>
+
+<div id="dataContainer" class="hidden">
+    <div class="field" onclick="copyToClipboard('firstName')">
+        <div class="field-label">First Name</div>
+        <div class="field-value" id="firstName"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('lastName')">
+        <div class="field-label">Last Name</div>
+        <div class="field-value" id="lastName"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('email')">
+        <div class="field-label">Email</div>
+        <div class="field-value" id="email"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('phone')">
+        <div class="field-label">Phone Number</div>
+        <div class="field-value" id="phone"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('address')">
+        <div class="field-label">Street Address</div>
+        <div class="field-value" id="address"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('city')">
+        <div class="field-label">City, State, ZIP</div>
+        <div class="field-value" id="city"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+
+    <div class="field" onclick="copyToClipboard('fullAddress')">
+        <div class="field-label">Full Address</div>
+        <div class="field-value" id="fullAddress"></div>
+        <span class="copy-hint">Click to copy</span>
+    </div>
+</div>
+
+<div class="copied" id="copiedNotification">
+    ✓ Copied to clipboard!
+</div>
+
+<script>
+// Списки данных для генерации
+const firstNames = [
+    "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph",
+    "Thomas", "Christopher", "Daniel", "Matthew", "Anthony", "Mark", "Donald",
+    "Mary", "Patricia", "Jennifer", "Linda", "Barbara", "Elizabeth", "Susan",
+    "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret", "Sandra",
+    "Ashley", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda", "Melissa"
+];
+
+const lastNames = [
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White",
+    "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
+    "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores", "Green"
+];
+
+const streets = [
+    "Riverside Dr",
+    "NW 14th St",
+    "NW 110th Ave",
+    "Forest Hills Blvd",
+    "Royal Palm Blvd",
+    "W Atlantic Blvd",
+    "Sample Rd",
+    "Coral Springs Dr",
+    "University Dr",
+    "Wiles Rd",
+    "Holmberg Rd",
+    "Turtle Run Blvd"
+];
+
+const emailDomains = [
+    "gmail.com",
+    "yahoo.com",
+    "outlook.com",
+    "hotmail.com",
+    "icloud.com",
+    "aol.com"
+];
+
+// Florida area codes для Coral Springs/Broward County
+const floridaAreaCodes = ["954", "754"];
+
+function getRandomElement(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
+
+function generatePhone() {
+    const areaCode = getRandomElement(floridaAreaCodes);
+    const exchange = Math.floor(Math.random() * 900) + 100; // 100-999
+    const subscriber = Math.floor(Math.random() * 9000) + 1000; // 1000-9999
+
+    return `(${areaCode}) ${exchange}-${subscriber}`;
+}
+
+function generateEmail(firstName, lastName) {
+    const fName = firstName.toLowerCase();
+    const lName = lastName.toLowerCase();
+    const domain = getRandomElement(emailDomains);
+
+    // Разные варианты формата email
+    const formats = [
+        `${fName}.${lName}@${domain}`,
+        `${fName}${lName}@${domain}`,
+        `${fName}_${lName}@${domain}`,
+        `${fName}${Math.floor(Math.random() * 999)}@${domain}`,
+        `${fName}.${lName}${Math.floor(Math.random() * 99)}@${domain}`
+    ];
+
+    return getRandomElement(formats);
+}
+
+function generateData() {
+    // Генерация имени
+    const firstName = getRandomElement(firstNames);
+    const lastName = getRandomElement(lastNames);
+
+    // Генерация email
+    const email = generateEmail(firstName, lastName);
+
+    // Генерация телефона
+    const phone = generatePhone();
+
+    // Генерация адреса
+    const streetNumber = Math.floor(Math.random() * 9000) + 100;
+    const streetName = getRandomElement(streets);
+    const streetAddress = `${streetNumber} ${streetName}`;
+
+    const cityStateZip = "Coral Springs, FL 33071";
+    const fullAddress = `${streetAddress}, ${cityStateZip}`;
+
+    // Обновление UI
+    document.getElementById("firstName").innerText = firstName;
+    document.getElementById("lastName").innerText = lastName;
+    document.getElementById("email").innerText = email;
+    document.getElementById("phone").innerText = phone;
+    document.getElementById("address").innerText = streetAddress;
+    document.getElementById("city").innerText = cityStateZip;
+    document.getElementById("fullAddress").innerText = fullAddress;
+
+    // Показать контейнер
+    document.getElementById("dataContainer").classList.remove("hidden");
+}
+
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    const text = element.innerText;
+
+    // Копирование в буфер обмена
+    navigator.clipboard.writeText(text).then(() => {
+        // Показать уведомление
+        const notification = document.getElementById("copiedNotification");
+        notification.classList.add("show");
+
+        // Скрыть через 2 секунды
+        setTimeout(() => {
+            notification.classList.remove("show");
+        }, 2000);
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        alert('Copied: ' + text);
+    });
+}
+
+// Автоматическая генерация при загрузке страницы
+window.onload = function() {
+    generateData();
+};
+</script>
+
+</body>
+</html>
