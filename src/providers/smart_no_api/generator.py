@@ -379,6 +379,14 @@ def check_heading(page, expected_texts, timeout=15000):
     ВАЖНО: Используется для подтверждения загрузки страницы/шага.
     Автоматически вызывается вместо page.get_by_role("heading").click()
 
+    ФИЛОСОФИЯ: Heading проверки НЕ обязательны - сайты могут:
+    - Показывать вопросы в разном порядке (A/B тесты)
+    - Пропускать вопросы для определенных пользователей
+    - Изменять текст заголовков динамически
+
+    Если heading не найден - логируем WARNING и ПРОДОЛЖАЕМ выполнение.
+    Exception бросаем только если ДЕЙСТВИЯ (click, fill) падают.
+
     Использует substring matching (exact=False), т.к. Playwright Recorder
     часто обрезает длинные заголовки до первых слов.
 
@@ -387,8 +395,8 @@ def check_heading(page, expected_texts, timeout=15000):
         expected_texts: Список альтернативных текстов заголовка (может быть строка или список)
         timeout: Таймаут в миллисекундах (по умолчанию 15 секунд)
 
-    Raises:
-        Exception: Если ни один заголовок не найден (останавливает выполнение)
+    Returns:
+        True если заголовок найден, False если не найден (не бросает exception!)
     """
     # Ensure expected_texts is a list
     if isinstance(expected_texts, str):
@@ -412,10 +420,12 @@ def check_heading(page, expected_texts, timeout=15000):
                 # Continue to next alternative
                 continue
 
-    # If no heading found, raise exception to stop execution
-    error_msg = f"Заголовок не найден из списка: {expected_texts}. Страница не загрузилась или изменилась структура сайта."
-    print(f"[CHECK_HEADING] [ERROR] {error_msg}")
-    raise Exception(f"check_heading() failed: {error_msg}")
+    # If no heading found, log warning but CONTINUE execution
+    # This allows handling of dynamic flows, A/B tests, skipped questions, etc.
+    print(f"[CHECK_HEADING] [WARNING] Заголовок не найден из списка: {expected_texts}")
+    print(f"[CHECK_HEADING] [INFO] Это может быть нормально - сайт может показывать вопросы в разном порядке или пропускать их.")
+    print(f"[CHECK_HEADING] [INFO] Продолжаем выполнение...")
+    return False
 
 
 def wait_for_navigation(page, timeout=30000):
