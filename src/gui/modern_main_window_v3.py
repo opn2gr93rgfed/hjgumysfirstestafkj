@@ -311,91 +311,21 @@ class ModernAppV3(ctk.CTk):
         self.tabview.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
 
         # Добавить вкладки
-        self.tab_import = self.tabview.add("📥 Import Code")
-        self.tab_edit = self.tabview.add("✏️ Preview & Edit")
+        self.tab_edit = self.tabview.add("🚀 Автоматизация")
         self.tab_data = self.tabview.add("📊 Data")
         self.tab_proxies = self.tabview.add("🌐 Proxies")
         self.tab_octo = self.tabview.add("🐙 Octo API")
         self.tab_logs = self.tabview.add("📋 Logs")
 
         # Настроить вкладки
-        self.setup_import_tab()
         self.setup_edit_tab()
         self.setup_data_tab()
         self.setup_proxies_tab()
         self.setup_octo_tab()
         self.setup_logs_tab()
 
-    def setup_import_tab(self):
-        """Настроить вкладку Import"""
-        tab = self.tab_import
-        tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(1, weight=1)
-
-        # Кнопки импорта
-        btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
-        btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ctk.CTkButton(
-            btn_frame,
-            text="📂 Open Python File",
-            command=self.import_from_file,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_primary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=8, sticky="ew")
-
-        ctk.CTkButton(
-            btn_frame,
-            text="📋 Paste from Clipboard",
-            command=self.import_from_clipboard,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_secondary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=1, padx=8, sticky="ew")
-
-        ctk.CTkButton(
-            btn_frame,
-            text="✨ Parse Data → CSV",
-            command=self.parse_and_generate_csv,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_success'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=2, padx=8, sticky="ew")
-
-        # Код превью
-        preview_container = ctk.CTkFrame(
-            tab,
-            corner_radius=16,
-            fg_color=self.theme['bg_tertiary'],
-            border_width=1,
-            border_color=self.theme['border_primary']
-        )
-        preview_container.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
-        preview_container.grid_columnconfigure(0, weight=1)
-        preview_container.grid_rowconfigure(0, weight=1)
-
-        self.import_preview = ctk.CTkTextbox(
-            preview_container,
-            font=('Consolas', 12),
-            fg_color=self.theme['bg_tertiary'],
-            text_color=self.theme['text_primary'],
-            wrap="none",
-            border_width=0
-        )
-        self.import_preview.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
-
-        # Placeholder
-        self.import_preview.insert("1.0", "# 📂 Import your Playwright code here...\n# Use buttons above to load code from file or clipboard")
-        self.import_preview.configure(state="disabled")
-
     def setup_edit_tab(self):
-        """Настроить вкладку Preview & Edit"""
+        """Настроить главную вкладку Автоматизация"""
         tab = self.tab_edit
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(4, weight=1)  # Увеличили на 1 из-за добавления шагов
@@ -958,12 +888,6 @@ class ModernAppV3(ctk.CTk):
 
             self.imported_data = result
 
-            # Показать в preview
-            self.import_preview.configure(state="normal")
-            self.import_preview.delete("1.0", "end")
-            self.import_preview.insert("1.0", result.get('converted_code', code))
-            self.import_preview.configure(state="disabled")
-
             # Показать в редакторе
             self.code_editor.delete("1.0", "end")
             self.code_editor.insert("1.0", result.get('converted_code', code))
@@ -1005,15 +929,6 @@ class ModernAppV3(ctk.CTk):
 
         except Exception as e:
             self.append_log(f"[ERROR] Ошибка парсинга данных: {e}", "ERROR")
-
-    def parse_and_generate_csv(self):
-        """Ручной парсинг и генерация CSV"""
-        code = self.import_preview.get("1.0", "end-1c")
-        if not code or code.startswith("# 📂"):
-            self.toast.warning("Сначала импортируйте код")
-            return
-
-        self.auto_parse_data(code)
 
     # ========================================================================
     # ГЕНЕРАЦИЯ СКРИПТА
