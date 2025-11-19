@@ -7,6 +7,7 @@ from typing import Optional, Callable
 import subprocess
 import threading
 import sys
+import os
 
 
 class Runner:
@@ -32,12 +33,15 @@ class Runner:
 
         def _run():
             try:
+                env = os.environ.copy()
+
                 self.process = subprocess.Popen(
                     [sys.executable, script_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
-                    bufsize=1
+                    bufsize=1,
+                    env=env
                 )
 
                 for line in self.process.stdout:
