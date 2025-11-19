@@ -111,6 +111,9 @@ class ModernAppV3(ctk.CTk):
         self.toast.container.lift()
         print("[MAIN WINDOW] Toast контейнер поднят после create_ui()")
 
+        # === ЗАГРУЗКА НАСТРОЕК ТАЙМАУТОВ ===
+        self.load_timeout_settings()
+
         # === ГОРЯЧИЕ КЛАВИШИ ===
         self.setup_hotkeys()
 
@@ -553,9 +556,64 @@ class ModernAppV3(ctk.CTk):
             text_color=self.theme['text_primary']
         ).pack(side="left")
 
+        # Шаблоны таймаутов
+        templates_frame = ctk.CTkFrame(step4_frame, fg_color="transparent")
+        templates_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
+
+        ctk.CTkLabel(
+            templates_frame,
+            text="⚡ Шаблоны:",
+            font=(ModernTheme.FONT['family'], 11, 'bold'),
+            text_color=self.theme['text_primary']
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            templates_frame,
+            text="🚀 Очень быстро",
+            command=lambda: self.apply_timeout_template("very_fast"),
+            width=120,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_success'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="⚡ Быстро",
+            command=lambda: self.apply_timeout_template("fast"),
+            width=100,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="⏱️ Нормально",
+            command=lambda: self.apply_timeout_template("normal"),
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_primary'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="🐌 Медленно",
+            command=lambda: self.apply_timeout_template("slow"),
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_warning'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
         # Настройки таймаутов
         timeouts_frame = ctk.CTkFrame(step4_frame, fg_color=self.theme['bg_secondary'], corner_radius=8)
-        timeouts_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        timeouts_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 15))
         timeouts_frame.grid_columnconfigure((1, 3, 5), weight=1)
 
         # Таймаут кликов
@@ -1244,6 +1302,81 @@ class ModernAppV3(ctk.CTk):
     # ========================================================================
     # ДРУГОЕ
     # ========================================================================
+
+    def apply_timeout_template(self, template_name: str):
+        """
+        Применить шаблон таймаутов
+
+        Args:
+            template_name: Название шаблона (very_fast, fast, normal, slow)
+        """
+        templates = {
+            "very_fast": {
+                "click": 5,
+                "navigation": 8,
+                "delay": 0.3,
+                "name": "Очень быстро"
+            },
+            "fast": {
+                "click": 7,
+                "navigation": 12,
+                "delay": 0.5,
+                "name": "Быстро"
+            },
+            "normal": {
+                "click": 10,
+                "navigation": 15,
+                "delay": 0.8,
+                "name": "Нормально"
+            },
+            "slow": {
+                "click": 15,
+                "navigation": 25,
+                "delay": 1.5,
+                "name": "Медленно"
+            }
+        }
+
+        if template_name not in templates:
+            return
+
+        template = templates[template_name]
+
+        # Применить значения
+        self.click_timeout_var.set(str(template["click"]))
+        self.navigation_timeout_var.set(str(template["navigation"]))
+        self.action_delay_var.set(str(template["delay"]))
+
+        # Сохранить в конфиг
+        if 'timeouts' not in self.config:
+            self.config['timeouts'] = {}
+
+        self.config['timeouts'] = {
+            'click_timeout': template["click"],
+            'navigation_timeout': template["navigation"],
+            'action_delay': template["delay"],
+            'template': template_name
+        }
+
+        self.save_config()
+        self.toast.success(f"✅ Шаблон применен: {template['name']}")
+        self.append_log(f"[SETTINGS] Шаблон таймаутов: {template['name']}", "INFO")
+
+    def load_timeout_settings(self):
+        """Загрузить настройки таймаутов из конфигурации"""
+        timeouts = self.config.get('timeouts', {})
+
+        click_timeout = timeouts.get('click_timeout', 10)
+        navigation_timeout = timeouts.get('navigation_timeout', 15)
+        action_delay = timeouts.get('action_delay', 0.5)
+
+        self.click_timeout_var.set(str(click_timeout))
+        self.navigation_timeout_var.set(str(navigation_timeout))
+        self.action_delay_var.set(str(action_delay))
+
+        template = timeouts.get('template')
+        if template:
+            self.append_log(f"[SETTINGS] Загружены таймауты: {template}", "INFO")
 
     def toggle_theme(self, value):
         """Переключить тему"""

@@ -39,6 +39,9 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
         self.grid_columnconfigure(0, weight=1)
 
+        # Переменная для хранения UUID тестового профиля
+        self.test_profile_uuid = None
+
         self.create_widgets()
 
         # 🔥 ЗАГРУЗИТЬ СОХРАНЕННЫЕ НАСТРОЙКИ
@@ -354,35 +357,76 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             wraplength=600
         ).pack(anchor="w", padx=16, pady=(0, 16))
 
-        # === BUTTONS FRAME ===
-        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.grid(row=8, column=0, padx=32, pady=32, sticky="ew")
-        buttons_frame.grid_columnconfigure(0, weight=1)
-        buttons_frame.grid_columnconfigure(1, weight=1)
+        # === TEST SECTION ===
+        test_section = self.create_collapsible_section(
+            "🧪 Тестирование API (отладка)",
+            row=8
+        )
+
+        # Информация о тестировании
+        ctk.CTkLabel(
+            test_section,
+            text="Используйте эти функции для проверки работы Octobrowser API:",
+            font=('Segoe UI', 11),
+            text_color=self.theme['text_secondary'],
+            anchor="w",
+            wraplength=700
+        ).pack(anchor="w", padx=16, pady=(16, 4))
+
+        # Кнопки тестирования
+        test_buttons_frame = ctk.CTkFrame(test_section, fg_color="transparent")
+        test_buttons_frame.pack(fill="x", padx=16, pady=(8, 16))
+        test_buttons_frame.grid_columnconfigure(0, weight=1)
+        test_buttons_frame.grid_columnconfigure(1, weight=1)
 
         # Test Create Profile button
-        test_profile_btn = ctk.CTkButton(
-            buttons_frame,
-            text="🧪 Test Create Profile",
+        ctk.CTkButton(
+            test_buttons_frame,
+            text="1️⃣ Создать тестовый профиль",
             command=self.test_create_profile,
-            height=56,
+            height=48,
             fg_color=self.theme['accent_info'],
             hover_color=self.theme['bg_hover'],
-            font=('Segoe UI', 14, 'bold')
+            font=('Segoe UI', 12, 'bold')
+        ).grid(row=0, column=0, padx=(0, 6), pady=4, sticky="ew")
+
+        # Test Start Profile button
+        ctk.CTkButton(
+            test_buttons_frame,
+            text="2️⃣ Запустить тестовый профиль",
+            command=self.test_start_profile,
+            height=48,
+            fg_color=self.theme['accent_success'],
+            hover_color=self.theme['bg_hover'],
+            font=('Segoe UI', 12, 'bold')
+        ).grid(row=0, column=1, padx=(6, 0), pady=4, sticky="ew")
+
+        # Статус тестового профиля
+        self.test_profile_status = ctk.CTkLabel(
+            test_section,
+            text="📋 Статус: Профиль не создан",
+            font=('Consolas', 10),
+            text_color=self.theme['text_secondary'],
+            anchor="w"
         )
-        test_profile_btn.grid(row=0, column=0, padx=(0, 8), sticky="ew")
+        self.test_profile_status.pack(anchor="w", padx=16, pady=(0, 16))
+
+        # === BUTTONS FRAME ===
+        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
+        buttons_frame.grid(row=9, column=0, padx=32, pady=32, sticky="ew")
+        buttons_frame.grid_columnconfigure(0, weight=1)
 
         # Save button
         save_btn = ctk.CTkButton(
             buttons_frame,
-            text="💾 Save API Settings",
+            text="💾 Сохранить настройки API",
             command=self.save_settings,
             height=56,
             fg_color=self.theme['accent_primary'],
             hover_color=self.theme['bg_hover'],
             font=('Segoe UI', 14, 'bold')
         )
-        save_btn.grid(row=0, column=1, padx=(8, 0), sticky="ew")
+        save_btn.grid(row=0, column=0, sticky="ew")
 
     def create_collapsible_section(self, title: str, row: int) -> ctk.CTkFrame:
         """Создать сворачиваемую секцию"""
@@ -571,9 +615,20 @@ class OctoAPITab(ctk.CTkScrollableFrame):
                 result = response.json()
                 if result.get('success') and 'data' in result:
                     profile_uuid = result['data']['uuid']
+
+                    # Сохранить UUID для дальнейшего тестирования
+                    self.test_profile_uuid = profile_uuid
+
+                    # Обновить статус
+                    if hasattr(self, 'test_profile_status'):
+                        self.test_profile_status.configure(
+                            text=f"📋 Профиль создан: {profile_uuid}",
+                            text_color=self.theme['accent_success']
+                        )
+
                     print(f"[TEST_PROFILE] ✅ Профиль создан: {profile_uuid}")
                     if self.toast:
-                        self.toast.success(f"✅ Профиль создан!\nUUID: {profile_uuid[:8]}...")
+                        self.toast.success(f"✅ Профиль создан!\nUUID: {profile_uuid[:8]}...\n\nТеперь можно нажать '2️⃣ Запустить тестовый профиль'")
                 else:
                     print(f"[TEST_PROFILE] ❌ Неожиданный формат ответа: {result}")
                     if self.toast:
@@ -585,6 +640,121 @@ class OctoAPITab(ctk.CTkScrollableFrame):
 
         except Exception as e:
             print(f"[TEST_PROFILE] ❌ Exception: {e}")
+            import traceback
+            traceback.print_exc()
+            if self.toast:
+                self.toast.error(f"❌ Ошибка: {str(e)}")
+
+    def test_start_profile(self):
+        """🧪 Тестовый запуск профиля через Local API"""
+        import time
+
+        print("[TEST_START] === НАЧАЛО ТЕСТА ЗАПУСКА ПРОФИЛЯ ===")
+
+        if not self.test_profile_uuid:
+            if self.toast:
+                self.toast.warning("⚠️ Сначала создайте тестовый профиль!\nНажмите '1️⃣ Создать тестовый профиль'")
+            return
+
+        if self.toast:
+            self.toast.info(f"🧪 Запускаю профиль {self.test_profile_uuid[:8]}...")
+
+        # Local API endpoint
+        local_api_url = "http://localhost:58888/api"
+
+        try:
+            # ШАГ 1: Проверка доступности Local API
+            print(f"[TEST_START] Проверка доступности {local_api_url}")
+            try:
+                response = requests.get(f"{local_api_url}/profiles", timeout=5)
+                if response.status_code in [200, 404]:
+                    print(f"[TEST_START] ✅ Local API доступен")
+                    if self.toast:
+                        self.toast.success("✅ Local API доступен (Octobrowser запущен)")
+                else:
+                    print(f"[TEST_START] ⚠️ Неожиданный статус: {response.status_code}")
+            except requests.exceptions.ConnectionError:
+                print(f"[TEST_START] ❌ Не удалось подключиться к {local_api_url}")
+                if self.toast:
+                    self.toast.error(f"❌ Local API недоступен!\n\nОктобраузер не запущен на localhost:58888")
+                return
+
+            # ШАГ 2: Ожидание синхронизации
+            print(f"[TEST_START] Ожидание синхронизации профиля (5 секунд)...")
+            if self.toast:
+                self.toast.info("⏳ Ожидание синхронизации Cloud → Local...")
+            time.sleep(5)
+
+            # ШАГ 3: Запуск профиля
+            max_retries = 8
+            for attempt in range(max_retries):
+                try:
+                    if attempt > 0:
+                        wait_time = 2 ** (attempt - 1) * 2  # 2s, 4s, 8s, 16s, 32s, 64s, 128s
+                        print(f"[TEST_START] Ожидание синхронизации: {wait_time}s")
+                        time.sleep(wait_time)
+
+                    print(f"[TEST_START] Попытка запуска {attempt+1}/{max_retries}: {self.test_profile_uuid}")
+                    response = requests.get(
+                        f"{local_api_url}/profiles/{self.test_profile_uuid}/start",
+                        timeout=30
+                    )
+
+                    print(f"[TEST_START] Ответ: {response.status_code}")
+
+                    if response.status_code == 200:
+                        data = response.json()
+                        print(f"[TEST_START] ✅ Профиль запущен!")
+                        print(f"[TEST_START] CDP endpoint: {data.get('ws_endpoint', 'N/A')}")
+
+                        # Обновить статус
+                        if hasattr(self, 'test_profile_status'):
+                            self.test_profile_status.configure(
+                                text=f"✅ Профиль запущен: {self.test_profile_uuid}",
+                                text_color=self.theme['accent_success']
+                            )
+
+                        if self.toast:
+                            self.toast.success(f"✅ Профиль успешно запущен!\n\nCDP: {data.get('ws_endpoint', '')[:30]}...")
+
+                        return  # Успех
+
+                    elif response.status_code == 404:
+                        print(f"[TEST_START] [!] Профиль еще не синхронизирован с локальным Octobrowser")
+                        if attempt == max_retries - 1:
+                            # Последняя попытка
+                            if self.toast:
+                                self.toast.error(f"❌ Профиль не синхронизировался!\n\nПрофиль создан в облаке, но не появился в локальном Octobrowser после {max_retries} попыток")
+                        continue
+
+                    else:
+                        print(f"[TEST_START] ❌ Ошибка {response.status_code}: {response.text}")
+                        if self.toast:
+                            self.toast.error(f"❌ Ошибка {response.status_code}: {response.text[:100]}")
+                        return
+
+                except requests.exceptions.Timeout:
+                    print(f"[TEST_START] ❌ Timeout при запуске профиля")
+                    if attempt == max_retries - 1:
+                        if self.toast:
+                            self.toast.error("❌ Timeout при запуске профиля")
+                    continue
+
+                except Exception as e:
+                    print(f"[TEST_START] ❌ Exception: {e}")
+                    if self.toast:
+                        self.toast.error(f"❌ Ошибка: {str(e)}")
+                    return
+
+            # Если все попытки исчерпаны
+            if hasattr(self, 'test_profile_status'):
+                self.test_profile_status.configure(
+                    text=f"❌ Не удалось запустить профиль после {max_retries} попыток",
+                    text_color=self.theme['accent_error']
+                )
+
+        except Exception as e:
+            print(f"[TEST_START] ❌ Exception: {e}")
             import traceback
             traceback.print_exc()
             if self.toast:
