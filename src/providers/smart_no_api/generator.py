@@ -142,7 +142,7 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
             "login": PROXY_LOGIN,
             "password": PROXY_PASSWORD
         }}
-        print(f"[PROFILE] ⚠️ ПРОКСИ ОБЯЗАТЕЛЕН: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
+        print(f"[PROFILE] [!] ПРОКСИ ОБЯЗАТЕЛЕН: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
 
     if {geolocation_json}:
         profile_data['geolocation'] = {geolocation_json}
@@ -156,16 +156,16 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
             result = response.json()
             if result.get('success') and 'data' in result:
                 profile_uuid = result['data']['uuid']
-                print(f"[PROFILE] ✓ Профиль создан: {{profile_uuid}}")
+                print(f"[PROFILE] [OK] Профиль создан: {{profile_uuid}}")
                 return profile_uuid
             else:
-                print(f"[PROFILE] ✗ Неожиданный формат ответа: {{result}}")
+                print(f"[PROFILE] [ERROR] Неожиданный формат ответа: {{result}}")
                 return None
         else:
-            print(f"[PROFILE] ✗ Ошибка API: {{response.status_code}} - {{response.text}}")
+            print(f"[PROFILE] [ERROR] Ошибка API: {{response.status_code}} - {{response.text}}")
             return None
     except Exception as e:
-        print(f"[PROFILE] ✗ Exception при создании: {{e}}")
+        print(f"[PROFILE] [ERROR] Exception при создании: {{e}}")
         import traceback
         traceback.print_exc()
         return None
@@ -181,13 +181,13 @@ def start_profile(profile_uuid: str) -> Optional[Dict]:
 
         if response.status_code == 200:
             data = response.json()
-            print(f"[PROFILE] ✓ Профиль запущен, CDP endpoint получен")
+            print(f"[PROFILE] [OK] Профиль запущен, CDP endpoint получен")
             return data
         else:
-            print(f"[PROFILE] ✗ Ошибка запуска: {{response.status_code}} - {{response.text}}")
+            print(f"[PROFILE] [ERROR] Ошибка запуска: {{response.status_code}} - {{response.text}}")
             return None
     except Exception as e:
-        print(f"[PROFILE] ✗ Exception при запуске: {{e}}")
+        print(f"[PROFILE] [ERROR] Exception при запуске: {{e}}")
         import traceback
         traceback.print_exc()
         return None
@@ -198,9 +198,9 @@ def stop_profile(profile_uuid: str):
     url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/stop"
     try:
         requests.get(url, timeout=10)
-        print(f"[PROFILE] ✓ Профиль остановлен")
+        print(f"[PROFILE] [OK] Профиль остановлен")
     except Exception as e:
-        print(f"[PROFILE] ⚠️ Не удалось остановить: {{e}}")
+        print(f"[PROFILE] [!] Не удалось остановить: {{e}}")
 
 
 def delete_profile(profile_uuid: str):
@@ -209,9 +209,9 @@ def delete_profile(profile_uuid: str):
     headers = {{"X-Octo-Api-Token": API_TOKEN}}
     try:
         requests.delete(url, headers=headers, timeout=10)
-        print(f"[PROFILE] ✓ Профиль удалён")
+        print(f"[PROFILE] [OK] Профиль удалён")
     except Exception as e:
-        print(f"[PROFILE] ⚠️ Не удалось удалить: {{e}}")
+        print(f"[PROFILE] [!] Не удалось удалить: {{e}}")
 
 
 '''
@@ -237,12 +237,12 @@ def smart_click(page, selectors_list, name="element", timeout=10000):
             element = page.locator(selector).first
             element.wait_for(state="visible", timeout=timeout)
             element.click()
-            print(f"[SMART_CLICK] ✓ Клик выполнен: {name}")
+            print(f"[SMART_CLICK] [OK] Клик выполнен: {name}")
             return True
         except Exception as e:
-            print(f"[SMART_CLICK] ✗ Селектор {i} не сработал: {e}")
+            print(f"[SMART_CLICK] [ERROR] Селектор {i} не сработал: {e}")
             if i == len(selectors_list):
-                print(f"[SMART_CLICK] ⚠️ Все селекторы не сработали для: {name}")
+                print(f"[SMART_CLICK] [!] Все селекторы не сработали для: {name}")
                 return False
     return False
 
@@ -264,12 +264,12 @@ def smart_fill(page, selectors_list, value, name="field", timeout=10000):
             element = page.locator(selector).first
             element.wait_for(state="visible", timeout=timeout)
             element.fill(value)
-            print(f"[SMART_FILL] ✓ Заполнено: {name}")
+            print(f"[SMART_FILL] [OK] Заполнено: {name}")
             return True
         except Exception as e:
-            print(f"[SMART_FILL] ✗ Селектор {i} не сработал: {e}")
+            print(f"[SMART_FILL] [ERROR] Селектор {i} не сработал: {e}")
             if i == len(selectors_list):
-                print(f"[SMART_FILL] ⚠️ Все селекторы не сработали для: {name}")
+                print(f"[SMART_FILL] [!] Все селекторы не сработали для: {name}")
                 return False
     return False
 
@@ -290,12 +290,12 @@ def check_heading(page, expected_texts, timeout=5000):
         try:
             heading = page.get_by_role("heading", name=text)
             heading.wait_for(state="visible", timeout=timeout)
-            print(f"[CHECK_HEADING] ✓ Найден заголовок: {text}")
+            print(f"[CHECK_HEADING] [OK] Найден заголовок: {text}")
             return True
         except:
             continue
 
-    print(f"[CHECK_HEADING] ⚠️ Заголовок не найден из списка: {expected_texts}")
+    print(f"[CHECK_HEADING] [!] Заголовок не найден из списка: {expected_texts}")
     return False
 
 
@@ -303,10 +303,10 @@ def wait_for_navigation(page, timeout=30000):
     """Ожидание завершения навигации"""
     try:
         page.wait_for_load_state("networkidle", timeout=timeout)
-        print("[NAVIGATION] ✓ Страница загружена")
+        print("[NAVIGATION] [OK] Страница загружена")
         return True
     except:
-        print("[NAVIGATION] ⚠️ Таймаут навигации")
+        print("[NAVIGATION] [!] Таймаут навигации")
         return False
 
 
@@ -355,11 +355,11 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
     try:
 {self._indent_code(user_code, 8)}
 
-        print(f"[ITERATION {{iteration_number}}] ✓ Завершено успешно")
+        print(f"[ITERATION {{iteration_number}}] [OK] Завершено успешно")
         return True
 
     except Exception as e:
-        print(f"[ITERATION {{iteration_number}}] ✗ Ошибка: {{e}}")
+        print(f"[ITERATION {{iteration_number}}] [ERROR] Ошибка: {{e}}")
         import traceback
         traceback.print_exc()
         return False
@@ -375,12 +375,12 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
 def main():
     """Главная функция запуска через Octobrowser API"""
     print("[MAIN] Запуск автоматизации через Octobrowser API...")
-    print(f"[MAIN] API Token: {API_TOKEN[:10]}..." if API_TOKEN else "[MAIN] ⚠️ API Token отсутствует!")
+    print(f"[MAIN] API Token: {API_TOKEN[:10]}..." if API_TOKEN else "[MAIN] [!] API Token отсутствует!")
 
     if USE_PROXY:
-        print(f"[MAIN] ✓ ПРОКСИ ВКЛЮЧЕН: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
+        print(f"[MAIN] [OK] ПРОКСИ ВКЛЮЧЕН: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
     else:
-        print("[MAIN] ⚠️ ПРОКСИ НЕ ВКЛЮЧЕН!")
+        print("[MAIN] [!] ПРОКСИ НЕ ВКЛЮЧЕН!")
 
     # Загрузка CSV
     csv_data = load_csv_data()
@@ -429,7 +429,7 @@ def main():
                 fail_count += 1
                 continue
 
-            print(f"[PROFILE] ✓ CDP endpoint получен")
+            print(f"[PROFILE] [OK] CDP endpoint получен")
 
             # Подключение через Playwright CDP
             with sync_playwright() as playwright:
