@@ -1,3 +1,4 @@
+# OTP LOGIC COMPLETELY REMOVED — THIS PROVIDER USES ONLY Field 1, Field 2, ...
 """
 Provider: default_no_otp
 Генератор Playwright скриптов БЕЗ OTP для автоматизации с Octobrowser
