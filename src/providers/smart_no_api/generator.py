@@ -379,27 +379,43 @@ def check_heading(page, expected_texts, timeout=15000):
     ВАЖНО: Используется для подтверждения загрузки страницы/шага.
     Автоматически вызывается вместо page.get_by_role("heading").click()
 
+    Использует substring matching (exact=False), т.к. Playwright Recorder
+    часто обрезает длинные заголовки до первых слов.
+
     Args:
         page: Playwright page
-        expected_texts: Список альтернативных текстов заголовка
+        expected_texts: Список альтернативных текстов заголовка (может быть строка или список)
         timeout: Таймаут в миллисекундах (по умолчанию 15 секунд)
 
-    Returns:
-        True если заголовок найден, иначе False
+    Raises:
+        Exception: Если ни один заголовок не найден (останавливает выполнение)
     """
+    # Ensure expected_texts is a list
+    if isinstance(expected_texts, str):
+        expected_texts = [expected_texts]
+
     for text in expected_texts:
         try:
-            heading = page.get_by_role("heading", name=text)
+            # First try exact match
+            heading = page.get_by_role("heading", name=text, exact=True)
             heading.wait_for(state="visible", timeout=timeout)
-            print(f"[CHECK_HEADING] [OK] Найден заголовок: {text}")
+            print(f"[CHECK_HEADING] [OK] Найден заголовок (exact): {text}")
             return True
         except Exception as e:
-            # Continue to next alternative
-            continue
+            # If exact match failed, try substring match
+            try:
+                heading = page.get_by_role("heading", name=text, exact=False)
+                heading.wait_for(state="visible", timeout=timeout)
+                print(f"[CHECK_HEADING] [OK] Найден заголовок (partial): {text}")
+                return True
+            except:
+                # Continue to next alternative
+                continue
 
-    # If no heading found, print all alternatives that were tried
-    print(f"[CHECK_HEADING] [!] Заголовок не найден из списка: {expected_texts}")
-    return False
+    # If no heading found, raise exception to stop execution
+    error_msg = f"Заголовок не найден из списка: {expected_texts}. Страница не загрузилась или изменилась структура сайта."
+    print(f"[CHECK_HEADING] [ERROR] {error_msg}")
+    raise Exception(f"check_heading() failed: {error_msg}")
 
 
 def wait_for_navigation(page, timeout=30000):
