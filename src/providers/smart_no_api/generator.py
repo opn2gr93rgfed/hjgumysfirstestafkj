@@ -206,12 +206,32 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
     return None
 
 
+def check_local_api() -> bool:
+    """Проверить доступность локального Octobrowser API"""
+    try:
+        print("[LOCAL_API] Проверка доступности локального Octobrowser...")
+        response = requests.get(f"{{LOCAL_API_URL}}/profiles", timeout=5)
+        if response.status_code in [200, 404]:  # 404 тоже OK - значит API работает
+            print(f"[LOCAL_API] [OK] Локальный Octobrowser доступен на {{LOCAL_API_URL}}")
+            return True
+        else:
+            print(f"[LOCAL_API] [ERROR] Неожиданный статус: {{response.status_code}}")
+            return False
+    except requests.exceptions.ConnectionError:
+        print(f"[LOCAL_API] [ERROR] Не удалось подключиться к {{LOCAL_API_URL}}")
+        print("[LOCAL_API] [!] Убедитесь, что Octobrowser запущен локально")
+        return False
+    except Exception as e:
+        print(f"[LOCAL_API] [ERROR] Ошибка проверки: {{e}}")
+        return False
+
+
 def start_profile(profile_uuid: str) -> Optional[Dict]:
     """Запустить профиль и получить CDP endpoint"""
     url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/start"
 
     # Retry logic для синхронизации профиля с локальным Octobrowser
-    max_retries = 5
+    max_retries = 8
     for attempt in range(max_retries):
         try:
             if attempt > 0:
@@ -435,6 +455,12 @@ def main():
     else:
         print("[MAIN] [!] ПРОКСИ НЕ ВКЛЮЧЕН!")
 
+    # Проверка доступности локального Octobrowser
+    if not check_local_api():
+        print("[MAIN] [ERROR] Локальный Octobrowser недоступен!")
+        print("[MAIN] [!] Запустите Octobrowser и убедитесь, что он работает на http://localhost:58888")
+        return
+
     # Загрузка CSV
     csv_data = load_csv_data()
     print(f"[MAIN] Загружено {len(csv_data)} строк данных")
@@ -474,8 +500,8 @@ def main():
             print(f"[PROFILE] UUID: {profile_uuid}")
 
             # Ожидание синхронизации профиля с локальным Octobrowser
-            print("[PROFILE] Ожидание синхронизации с локальным Octobrowser (2 сек)...")
-            time.sleep(2)
+            print("[PROFILE] Ожидание синхронизации с локальным Octobrowser (5 сек)...")
+            time.sleep(5)
 
             # Запуск профиля
             print("[PROFILE] Запуск...")
