@@ -49,32 +49,9 @@ Provider: smart_no_api (OCTOBROWSER API + PROXY + FALLBACKS)
 
 import csv
 import time
-import sys
-import asyncio
 import requests
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeout
 from typing import Dict, List, Optional
-
-# ============================================================
-# ⚠️ КРИТИЧЕСКИ ВАЖНО: Закрытие asyncio event loop для Playwright Sync API
-# ============================================================
-# Python 3.12+ на Windows автоматически создает asyncio event loop
-# Playwright Sync API НЕ МОЖЕТ работать внутри event loop
-# Закрываем loop перед вызовом sync_playwright()
-# ============================================================
-if sys.platform == 'win32' and sys.version_info >= (3, 12):
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            loop.stop()
-        loop.close()
-    except RuntimeError:
-        pass  # Loop already closed
-    except Exception:
-        pass  # Ignore other errors
-    # Устанавливаем политику event loop для Windows
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-    asyncio.set_event_loop(None)  # Убираем текущий event loop
 
 '''
 
@@ -455,7 +432,98 @@ def load_csv_data() -> List[Dict]:
 
 '''
 
+    def _clean_user_code(self, user_code: str) -> str:
+        """
+        Очистить пользовательский код от boilerplate Playwright Recorder
+
+        Удаляет:
+        - import statements
+        - def run(playwright) wrapper
+        - browser.launch(), context, page creation
+        - browser.close(), context.close()
+        - with sync_playwright() wrapper
+
+        Оставляет только действия пользователя (page.goto, page.get_by_role, etc.)
+        """
+        lines = user_code.split('\n')
+        cleaned_lines = []
+        skip_until_def_end = False
+        in_run_function = False
+        base_indent = None
+
+        for line in lines:
+            stripped = line.strip()
+
+            # Skip empty lines and comments at start
+            if not stripped or stripped.startswith('#'):
+                continue
+
+            # Skip imports
+            if stripped.startswith('import ') or stripped.startswith('from '):
+                continue
+
+            # Skip def run(playwright) line
+            if 'def run(' in stripped and 'playwright' in stripped:
+                in_run_function = True
+                continue
+
+            # Skip browser/context/page setup
+            if any(pattern in stripped for pattern in [
+                'browser = playwright.chromium.launch',
+                'context = browser.new_context',
+                'page = context.new_page',
+                'browser.launch(',
+                'new_context(',
+                'new_page('
+            ]):
+                continue
+
+            # Skip browser/context close
+            if any(pattern in stripped for pattern in [
+                'context.close()',
+                'browser.close()',
+                '.close()'
+            ]) and 'page' not in stripped:
+                continue
+
+            # Skip with sync_playwright wrapper
+            if 'with sync_playwright()' in stripped:
+                continue
+            if stripped == 'run(playwright)':
+                continue
+
+            # Skip separator comments
+            if stripped.startswith('# -----'):
+                continue
+
+            # If we're in run function, adjust indentation
+            if in_run_function and stripped:
+                # Detect base indentation from first real action
+                if base_indent is None and not stripped.startswith('def '):
+                    base_indent = len(line) - len(line.lstrip())
+
+                # Remove base indentation
+                if base_indent is not None:
+                    if line.startswith(' ' * base_indent):
+                        cleaned_line = line[base_indent:]
+                        cleaned_lines.append(cleaned_line)
+                    else:
+                        # Line with less indentation - keep as is
+                        cleaned_lines.append(line.lstrip())
+
+        cleaned_code = '\n'.join(cleaned_lines)
+
+        # If we couldn't extract anything, return original code
+        # (maybe it's already clean or in different format)
+        if not cleaned_code.strip():
+            return user_code
+
+        return cleaned_code
+
     def _generate_main_iteration(self, user_code: str) -> str:
+        # Clean user code from Playwright Recorder boilerplate
+        cleaned_code = self._clean_user_code(user_code)
+
         return f'''# ============================================================
 # ОСНОВНАЯ ФУНКЦИЯ ИТЕРАЦИИ
 # ============================================================
@@ -465,7 +533,7 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
     Запуск одной итерации автоматизации
 
     Args:
-        page: Playwright page
+        page: Playwright page (уже подключен к Octobrowser через CDP)
         data_row: Данные из CSV (Field 1, Field 2, ...)
         iteration_number: Номер итерации
     """
@@ -474,7 +542,10 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
     print(f"{'='*60}")
 
     try:
-{self._indent_code(user_code, 8)}
+        # ============================================================
+        # ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ (очищены от Playwright boilerplate)
+        # ============================================================
+{self._indent_code(cleaned_code, 8)}
 
         print(f"[ITERATION {{iteration_number}}] [OK] Завершено успешно")
         return True
