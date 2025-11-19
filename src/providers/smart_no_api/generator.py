@@ -372,14 +372,17 @@ def smart_fill(page, selectors_list, value, name="field", timeout=10000):
     return False
 
 
-def check_heading(page, expected_texts, timeout=5000):
+def check_heading(page, expected_texts, timeout=15000):
     """
     Проверка наличия заголовка с альтернативными текстами
+
+    ВАЖНО: Используется для подтверждения загрузки страницы/шага.
+    Автоматически вызывается вместо page.get_by_role("heading").click()
 
     Args:
         page: Playwright page
         expected_texts: Список альтернативных текстов заголовка
-        timeout: Таймаут в миллисекундах
+        timeout: Таймаут в миллисекундах (по умолчанию 15 секунд)
 
     Returns:
         True если заголовок найден, иначе False
@@ -390,9 +393,11 @@ def check_heading(page, expected_texts, timeout=5000):
             heading.wait_for(state="visible", timeout=timeout)
             print(f"[CHECK_HEADING] [OK] Найден заголовок: {text}")
             return True
-        except:
+        except Exception as e:
+            # Continue to next alternative
             continue
 
+    # If no heading found, print all alternatives that were tried
     print(f"[CHECK_HEADING] [!] Заголовок не найден из списка: {expected_texts}")
     return False
 
@@ -443,11 +448,15 @@ def load_csv_data() -> List[Dict]:
         - browser.close(), context.close()
         - with sync_playwright() wrapper
 
+        Трансформирует:
+        - page.get_by_role("heading", name="...").click() → check_heading(page, ["..."])
+
         Оставляет только действия пользователя (page.goto, page.get_by_role, etc.)
         """
+        import re
+
         lines = user_code.split('\n')
         cleaned_lines = []
-        skip_until_def_end = False
         in_run_function = False
         base_indent = None
 
@@ -495,6 +504,29 @@ def load_csv_data() -> List[Dict]:
             # Skip separator comments
             if stripped.startswith('# -----'):
                 continue
+
+            # Transform heading clicks into check_heading() calls
+            if 'get_by_role("heading"' in stripped or "get_by_role('heading'" in stripped:
+                # Extract heading text using regex
+                # Patterns: page.get_by_role("heading", name="TEXT").click()
+                #           page.get_by_role('heading', name='TEXT').click()
+                match = re.search(r'get_by_role\(["\']heading["\']\s*,\s*name=["\']([^"\']+)["\']', stripped)
+                if match:
+                    heading_text = match.group(1)
+                    # Get current line indentation
+                    current_indent = len(line) - len(line.lstrip())
+
+                    # Remove base indentation if we're in run function
+                    if in_run_function and base_indent is not None:
+                        current_indent = max(0, current_indent - base_indent)
+
+                    # Generate check_heading call with increased timeout
+                    transformed_line = ' ' * current_indent + f'check_heading(page, ["{heading_text}"], timeout=15000)'
+                    cleaned_lines.append(transformed_line)
+                    continue
+                else:
+                    # If we can't parse, skip the line (likely malformed)
+                    continue
 
             # If we're in run function, adjust indentation
             if in_run_function and stripped:
