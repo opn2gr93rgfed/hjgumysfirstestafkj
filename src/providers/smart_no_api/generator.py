@@ -434,6 +434,49 @@ def check_heading(page, expected_texts, timeout=5000):
     return False
 
 
+def safe_action(action_fn, description="action", critical=False):
+    """
+    Безопасное выполнение действия с обработкой ошибок
+
+    ФИЛОСОФИЯ: Большинство действий НЕ критичны - если кнопка не найдена,
+    возможно мы на другом шаге флоу. Продолжаем выполнение вместо остановки.
+
+    Args:
+        action_fn: Lambda функция с действием (например: lambda: page.click(...))
+        description: Описание действия для логов
+        critical: Если True - бросает exception при ошибке, если False - продолжает
+
+    Returns:
+        True если действие выполнено успешно, False если ошибка
+
+    Example:
+        safe_action(lambda: page.get_by_role("button", name="Next").click(), "Click Next button")
+    """
+    try:
+        action_fn()
+        print(f"[ACTION] [OK] {description}")
+        return True
+    except PlaywrightTimeout as e:
+        print(f"[ACTION] [WARNING] Timeout: {description}")
+        print(f"[ACTION] [INFO] Элемент не найден за отведенное время")
+        print(f"[ACTION] [INFO] Возможно, мы на другом шаге флоу или вопрос пропущен")
+        if critical:
+            print(f"[ACTION] [ERROR] Это критичное действие - останавливаем выполнение")
+            raise
+        print(f"[ACTION] [INFO] Продолжаем выполнение следующих шагов...")
+        # Small delay before continuing
+        time.sleep(0.3)
+        return False
+    except Exception as e:
+        print(f"[ACTION] [ERROR] Неожиданная ошибка: {description}")
+        print(f"[ACTION] [ERROR] {str(e)[:200]}")
+        if critical:
+            raise
+        print(f"[ACTION] [INFO] Продолжаем выполнение...")
+        time.sleep(0.3)
+        return False
+
+
 def wait_for_navigation(page, timeout=30000):
     """Ожидание завершения навигации"""
     try:
