@@ -395,7 +395,7 @@ class ModernAppV3(ctk.CTk):
         """Настроить вкладку Preview & Edit"""
         tab = self.tab_edit
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(2, weight=1)
+        tab.grid_rowconfigure(3, weight=1)
 
         # Generator selector
         selector_frame = ctk.CTkFrame(tab, fg_color="transparent", height=60)
@@ -421,9 +421,83 @@ class ModernAppV3(ctk.CTk):
         self.provider_selector.set(self.current_provider)
         self.provider_selector.pack(side="left")
 
+        # Main action buttons
+        action_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
+        action_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
+        action_frame.grid_propagate(False)
+        action_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+
+        ctk.CTkButton(
+            action_frame,
+            text="📂 Загрузить запись",
+            command=self.import_from_file,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_info'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold')
+        ).grid(row=0, column=0, padx=4, sticky="ew")
+
+        ctk.CTkButton(
+            action_frame,
+            text="✨ Генерировать",
+            command=self.generate_playwright_script,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_primary'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold')
+        ).grid(row=0, column=1, padx=4, sticky="ew")
+
+        ctk.CTkButton(
+            action_frame,
+            text="▶️ Запуск всех",
+            command=self.start_script,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_success'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold')
+        ).grid(row=0, column=2, padx=4, sticky="ew")
+
+        self.stop_btn_main = ctk.CTkButton(
+            action_frame,
+            text="⏹️ Стоп",
+            command=self.stop_script,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_error'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold'),
+            state="disabled"
+        )
+        self.stop_btn_main.grid(row=0, column=3, padx=4, sticky="ew")
+
+        ctk.CTkButton(
+            action_frame,
+            text="📊 Загрузить CSV",
+            command=self.load_csv,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_warning'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold')
+        ).grid(row=0, column=4, padx=4, sticky="ew")
+
+        ctk.CTkButton(
+            action_frame,
+            text="🗑️ Очистить лог",
+            command=self.clear_logs,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_secondary'],
+            hover_color=self.theme['bg_hover'],
+            font=(ModernTheme.FONT['family'], 13, 'bold')
+        ).grid(row=0, column=5, padx=4, sticky="ew")
+
         # Control buttons
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=24)
+        btn_frame.grid(row=2, column=0, sticky="ew", padx=24, pady=24)
         btn_frame.grid_propagate(False)
         btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # 🔥 6 кнопок
 
@@ -879,6 +953,8 @@ class ModernAppV3(ctk.CTk):
             # UI обновление
             self.run_btn.configure(state="disabled")
             self.stop_btn.configure(state="normal")
+            if hasattr(self, 'stop_btn_main'):
+                self.stop_btn_main.configure(state="normal")
             self.status_label.configure(text="▶️ Running...")
             self.progress_bar.set(0.5)
 
@@ -923,6 +999,8 @@ class ModernAppV3(ctk.CTk):
         """Завершение скрипта"""
         self.run_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
+        if hasattr(self, 'stop_btn_main'):
+            self.stop_btn_main.configure(state="disabled")
         self.status_label.configure(text="⚡ Ready")
         self.progress_bar.set(0)
 
