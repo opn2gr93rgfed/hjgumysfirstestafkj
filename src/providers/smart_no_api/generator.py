@@ -692,14 +692,16 @@ def load_csv_data() -> List[Dict]:
 
             # Wrap action in try-except if it's resilient (not critical)
             if is_action and not is_critical:
-                # Extract action description for logging
+                # Extract action description for logging (sanitize quotes)
                 action_desc = self._extract_action_description(stripped)
+                # Replace curly quotes and escape quotes for safe f-string usage
+                action_desc = action_desc.replace("'", "'").replace("'", "'").replace('"', '\\"')
 
                 wrapped_lines.append(f"{indent_str}try:")
                 wrapped_lines.append(f"{indent_str}    {stripped}")
                 wrapped_lines.append(f"{indent_str}except PlaywrightTimeout:")
-                wrapped_lines.append(f"{indent_str}    print(f'[ACTION] [WARNING] Timeout: {action_desc}')")
-                wrapped_lines.append(f"{indent_str}    print(f'[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...')")
+                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [WARNING] Timeout: {action_desc}")')
+                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...")')
                 wrapped_lines.append(f"{indent_str}    pass  # Continue execution")
             else:
                 # Keep as-is (critical actions or non-actions)
