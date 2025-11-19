@@ -1,7 +1,7 @@
-# SMART NO API PROVIDER — NO OCTOBROWSER, PURE PLAYWRIGHT WITH FALLBACKS
+# SMART PROVIDER WITH OCTOBROWSER API + PROXY + FALLBACKS
 """
 Provider: smart_no_api
-Генератор скриптов БЕЗ Octobrowser API, с умными альтернативами и проверкой заголовков
+Генератор скриптов с Octobrowser API, обязательными прокси и умными альтернативами
 """
 
 import json
@@ -9,25 +9,29 @@ from typing import Dict, List
 
 
 class Generator:
-    """Генератор для чистого Playwright без API зависимостей"""
+    """Генератор для Playwright через Octobrowser API с прокси"""
 
     def generate_script(self, user_code: str, config: Dict) -> str:
         """
-        Генерирует Playwright скрипт с fallback системой
+        Генерирует Playwright скрипт с Octobrowser API + прокси
 
         Args:
             user_code: Код автоматизации из Playwright recorder
-            config: Конфигурация
+            config: Конфигурация (API token, proxy, profile settings)
 
         Returns:
             Полный исполняемый Python скрипт
         """
+        api_token = config.get('api_token', '')
         csv_filename = config.get('csv_filename', 'data.csv')
         csv_data = config.get('csv_data', None)
         csv_embed_mode = config.get('csv_embed_mode', True)
+        proxy_config = config.get('proxy', {})
+        profile_config = config.get('profile', {})
 
         script = self._generate_imports()
-        script += self._generate_config(csv_filename, csv_data, csv_embed_mode)
+        script += self._generate_config(api_token, csv_filename, csv_data, csv_embed_mode, proxy_config)
+        script += self._generate_octobrowser_functions(profile_config, proxy_config)
         script += self._generate_helpers()
         script += self._generate_csv_loader()
         script += self._generate_main_iteration(user_code)
@@ -40,23 +44,27 @@ class Generator:
 # -*- coding: utf-8 -*-
 """
 Автоматически сгенерированный скрипт
-Provider: smart_no_api (NO OCTOBROWSER API)
+Provider: smart_no_api (OCTOBROWSER API + PROXY + FALLBACKS)
 """
 
 import csv
 import time
-import os
-import re
-from pathlib import Path
+import requests
 from playwright.sync_api import sync_playwright, expect, TimeoutError as PlaywrightTimeout
 from typing import Dict, List, Optional
 
 '''
 
-    def _generate_config(self, csv_filename: str, csv_data: List[Dict], csv_embed_mode: bool) -> str:
-        config = '''# ============================================================
+    def _generate_config(self, api_token: str, csv_filename: str, csv_data: List[Dict],
+                         csv_embed_mode: bool, proxy_config: Dict) -> str:
+        config = f'''# ============================================================
 # КОНФИГУРАЦИЯ
 # ============================================================
+
+# Octobrowser API
+API_BASE_URL = "https://app.octobrowser.net/api/v2/automation"
+API_TOKEN = "{api_token}"
+LOCAL_API_URL = "http://localhost:58888/api"
 
 '''
 
@@ -73,17 +81,140 @@ CSV_FILENAME = "{csv_filename}"
 
 '''
 
-        config += '''# Настройки браузера
-HEADLESS = False
-VIEWPORT = {"width": 1920, "height": 1080}
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        # Прокси конфигурация
+        proxy_enabled = proxy_config.get('enabled', False)
+        config += f'''# Прокси настройки (ОБЯЗАТЕЛЬНО)
+USE_PROXY = {proxy_enabled}
+'''
 
+        if proxy_enabled:
+            config += f'''PROXY_TYPE = "{proxy_config.get('type', 'http')}"
+PROXY_HOST = "{proxy_config.get('host', '')}"
+PROXY_PORT = "{proxy_config.get('port', '')}"
+PROXY_LOGIN = "{proxy_config.get('login', '')}"
+PROXY_PASSWORD = "{proxy_config.get('password', '')}"
+'''
+
+        config += '''
 # Таймауты
 DEFAULT_TIMEOUT = 30000  # 30 секунд
 NAVIGATION_TIMEOUT = 60000  # 60 секунд
 
 '''
         return config
+
+    def _generate_octobrowser_functions(self, profile_config: Dict, proxy_config: Dict) -> str:
+        """Генерирует функции Octobrowser API с поддержкой прокси"""
+        if not profile_config:
+            profile_config = {}
+
+        fingerprint = profile_config.get('fingerprint') or {"os": "win"}
+        tags = profile_config.get('tags', [])
+        notes = profile_config.get('notes', '')
+        geolocation = profile_config.get('geolocation')
+
+        fingerprint_json = json.dumps(fingerprint, ensure_ascii=False)
+        tags_json = json.dumps(tags, ensure_ascii=False)
+        geolocation_json = json.dumps(geolocation, ensure_ascii=False) if geolocation else 'None'
+
+        return f'''# ============================================================
+# OCTOBROWSER API ФУНКЦИИ
+# ============================================================
+
+def create_profile(title: str = "Auto Profile") -> Optional[str]:
+    """Создать профиль через Octobrowser API с прокси"""
+    url = f"{{API_BASE_URL}}/profiles"
+    headers = {{"X-Octo-Api-Token": API_TOKEN}}
+
+    profile_data = {{
+        "title": title,
+        "fingerprint": {fingerprint_json},
+        "tags": {tags_json},
+        "notes": "{notes}"
+    }}
+
+    # Добавление прокси если включено
+    if USE_PROXY:
+        profile_data["proxy"] = {{
+            "type": PROXY_TYPE,
+            "host": PROXY_HOST,
+            "port": PROXY_PORT,
+            "login": PROXY_LOGIN,
+            "password": PROXY_PASSWORD
+        }}
+        print(f"[PROFILE] ⚠️ ПРОКСИ ОБЯЗАТЕЛЕН: {{PROXY_TYPE}}://{{PROXY_HOST}}:{{PROXY_PORT}}")
+
+    if {geolocation_json}:
+        profile_data['geolocation'] = {geolocation_json}
+
+    try:
+        response = requests.post(url, headers=headers, json=profile_data, timeout=30)
+        print(f"[PROFILE] API Response Status: {{response.status_code}}")
+        print(f"[PROFILE] API Response: {{response.text[:500]}}")
+
+        if response.status_code in [200, 201]:
+            result = response.json()
+            if result.get('success') and 'data' in result:
+                profile_uuid = result['data']['uuid']
+                print(f"[PROFILE] ✓ Профиль создан: {{profile_uuid}}")
+                return profile_uuid
+            else:
+                print(f"[PROFILE] ✗ Неожиданный формат ответа: {{result}}")
+                return None
+        else:
+            print(f"[PROFILE] ✗ Ошибка API: {{response.status_code}} - {{response.text}}")
+            return None
+    except Exception as e:
+        print(f"[PROFILE] ✗ Exception при создании: {{e}}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def start_profile(profile_uuid: str) -> Optional[Dict]:
+    """Запустить профиль и получить CDP endpoint"""
+    url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/start"
+    try:
+        print(f"[PROFILE] Запуск профиля: {{profile_uuid}}")
+        response = requests.get(url, timeout=30)
+        print(f"[PROFILE] Start Response Status: {{response.status_code}}")
+
+        if response.status_code == 200:
+            data = response.json()
+            print(f"[PROFILE] ✓ Профиль запущен, CDP endpoint получен")
+            return data
+        else:
+            print(f"[PROFILE] ✗ Ошибка запуска: {{response.status_code}} - {{response.text}}")
+            return None
+    except Exception as e:
+        print(f"[PROFILE] ✗ Exception при запуске: {{e}}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def stop_profile(profile_uuid: str):
+    """Остановить профиль"""
+    url = f"{{LOCAL_API_URL}}/profiles/{{profile_uuid}}/stop"
+    try:
+        requests.get(url, timeout=10)
+        print(f"[PROFILE] ✓ Профиль остановлен")
+    except Exception as e:
+        print(f"[PROFILE] ⚠️ Не удалось остановить: {{e}}")
+
+
+def delete_profile(profile_uuid: str):
+    """Удалить профиль"""
+    url = f"{{API_BASE_URL}}/profiles/{{profile_uuid}}"
+    headers = {{"X-Octo-Api-Token": API_TOKEN}}
+    try:
+        requests.delete(url, headers=headers, timeout=10)
+        print(f"[PROFILE] ✓ Профиль удалён")
+    except Exception as e:
+        print(f"[PROFILE] ⚠️ Не удалось удалить: {{e}}")
+
+
+'''
 
     def _generate_helpers(self) -> str:
         return '''# ============================================================
@@ -242,8 +373,14 @@ def run_iteration(page, data_row: Dict, iteration_number: int):
 # ============================================================
 
 def main():
-    """Главная функция запуска"""
-    print("[MAIN] Запуск автоматизации...")
+    """Главная функция запуска через Octobrowser API"""
+    print("[MAIN] Запуск автоматизации через Octobrowser API...")
+    print(f"[MAIN] API Token: {API_TOKEN[:10]}..." if API_TOKEN else "[MAIN] ⚠️ API Token отсутствует!")
+
+    if USE_PROXY:
+        print(f"[MAIN] ✓ ПРОКСИ ВКЛЮЧЕН: {PROXY_TYPE}://{PROXY_HOST}:{PROXY_PORT}")
+    else:
+        print("[MAIN] ⚠️ ПРОКСИ НЕ ВКЛЮЧЕН!")
 
     # Загрузка CSV
     csv_data = load_csv_data()
@@ -252,10 +389,6 @@ def main():
     if not csv_data:
         print("[ERROR] Нет данных для обработки")
         return
-
-    # Создание директории для профилей
-    profiles_dir = Path("profiles")
-    profiles_dir.mkdir(exist_ok=True)
 
     # Обработка каждой строки
     success_count = 0
@@ -266,27 +399,44 @@ def main():
         print(f"# ROW {iteration_number}/{len(csv_data)}")
         print(f"{'#'*60}")
 
-        # Создание профиля для текущей итерации
-        profile_path = profiles_dir / f"profile_{iteration_number}"
-        profile_path.mkdir(exist_ok=True)
-
-        print(f"[PROFILE] Путь: {profile_path}")
+        profile_uuid = None
 
         try:
-            with sync_playwright() as playwright:
-                # Запуск браузера с persistent context
-                browser = playwright.chromium.launch_persistent_context(
-                    user_data_dir=str(profile_path),
-                    headless=HEADLESS,
-                    viewport=VIEWPORT,
-                    args=[
-                        "--no-sandbox",
-                        "--disable-blink-features=AutomationControlled",
-                        "--disable-dev-shm-usage"
-                    ]
-                )
+            # Создание профиля через API
+            profile_title = f"Auto Profile {iteration_number}"
+            print(f"[PROFILE] Создание профиля: {profile_title}")
+            profile_uuid = create_profile(profile_title)
 
-                page = browser.pages[0] if browser.pages else browser.new_page()
+            if not profile_uuid:
+                print("[ERROR] Не удалось создать профиль")
+                fail_count += 1
+                continue
+
+            print(f"[PROFILE] UUID: {profile_uuid}")
+
+            # Запуск профиля
+            print("[PROFILE] Запуск...")
+            start_data = start_profile(profile_uuid)
+
+            if not start_data:
+                print("[ERROR] Не удалось запустить профиль")
+                fail_count += 1
+                continue
+
+            debug_url = start_data.get('ws_endpoint')
+            if not debug_url:
+                print("[ERROR] Нет CDP endpoint")
+                fail_count += 1
+                continue
+
+            print(f"[PROFILE] ✓ CDP endpoint получен")
+
+            # Подключение через Playwright CDP
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.connect_over_cdp(debug_url)
+                context = browser.contexts[0]
+                page = context.pages[0]
+
                 page.set_default_timeout(DEFAULT_TIMEOUT)
                 page.set_default_navigation_timeout(NAVIGATION_TIMEOUT)
 
@@ -303,11 +453,18 @@ def main():
 
                 browser.close()
 
+            print(f"[PROFILE] Остановка профиля")
+            stop_profile(profile_uuid)
+
         except Exception as e:
             print(f"[ERROR] Критическая ошибка в итерации {iteration_number}: {e}")
             import traceback
             traceback.print_exc()
             fail_count += 1
+
+        finally:
+            if profile_uuid:
+                time.sleep(1)
 
         # Пауза между итерациями
         if iteration_number < len(csv_data):
