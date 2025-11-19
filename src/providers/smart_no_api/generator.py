@@ -676,6 +676,9 @@ def load_csv_data() -> List[Dict]:
                 'check_heading(',  # Already has resilience built-in
                 '= page',  # Variable assignments (page1 = ...)
                 'wait_for_navigation(',
+                'page1.',  # Actions on popup windows (page1, page2, etc.) - critical
+                'page2.',
+                'page3.',
             ])
 
             # Check if this is a resilient action (click, fill, etc.)
