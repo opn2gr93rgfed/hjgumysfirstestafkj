@@ -395,137 +395,274 @@ class ModernAppV3(ctk.CTk):
         """Настроить вкладку Preview & Edit"""
         tab = self.tab_edit
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(3, weight=1)
+        tab.grid_rowconfigure(4, weight=1)  # Увеличили на 1 из-за добавления шагов
 
-        # Generator selector
-        selector_frame = ctk.CTkFrame(tab, fg_color="transparent", height=60)
-        selector_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 0))
-        selector_frame.grid_propagate(False)
+        # ========== ШАГ 1: ВЫБОР ПРОВАЙДЕРА ==========
+        step1_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['accent_primary'],
+            height=80
+        )
+        step1_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 8))
+        step1_frame.grid_propagate(False)
+        step1_frame.grid_columnconfigure(1, weight=1)
+
+        step1_label = ctk.CTkLabel(
+            step1_frame,
+            text="ШАГ 1:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['accent_primary']
+        )
+        step1_label.grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
 
         ctk.CTkLabel(
-            selector_frame,
-            text="Provider:",
-            font=(ModernTheme.FONT['family'], 12, 'bold'),
+            step1_frame,
+            text="Выберите провайдер генерации",
+            font=(ModernTheme.FONT['family'], 13),
             text_color=self.theme['text_primary']
-        ).pack(side="left", padx=(0, 12))
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
 
         self.provider_selector = ctk.CTkComboBox(
-            selector_frame,
+            step1_frame,
             values=self.available_providers,
-            width=250,
-            height=36,
-            font=(ModernTheme.FONT['family'], 11),
+            width=300,
+            height=40,
+            font=(ModernTheme.FONT['family'], 12, 'bold'),
             state="readonly",
-            command=self.on_provider_changed
+            command=self.on_provider_changed,
+            fg_color=self.theme['accent_primary'],
+            button_color=self.theme['accent_secondary']
         )
         self.provider_selector.set(self.current_provider)
-        self.provider_selector.pack(side="left")
+        self.provider_selector.grid(row=0, column=2, padx=20, pady=15, sticky="e")
 
-        # Main action buttons
-        action_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        action_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
-        action_frame.grid_propagate(False)
-        action_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
-
-        ctk.CTkButton(
-            action_frame,
-            text="📂 Загрузить запись",
-            command=self.import_from_file,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_info'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold')
-        ).grid(row=0, column=0, padx=4, sticky="ew")
-
-        ctk.CTkButton(
-            action_frame,
-            text="✨ Генерировать",
-            command=self.generate_playwright_script,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_primary'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold')
-        ).grid(row=0, column=1, padx=4, sticky="ew")
-
-        ctk.CTkButton(
-            action_frame,
-            text="▶️ Запуск всех",
-            command=self.start_script,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_success'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold')
-        ).grid(row=0, column=2, padx=4, sticky="ew")
-
-        self.stop_btn_main = ctk.CTkButton(
-            action_frame,
-            text="⏹️ Стоп",
-            command=self.stop_script,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_error'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold'),
-            state="disabled"
+        # ========== ШАГ 2: ВСТАВИТЬ КОД ==========
+        step2_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary'],
+            height=80
         )
-        self.stop_btn_main.grid(row=0, column=3, padx=4, sticky="ew")
+        step2_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=8)
+        step2_frame.grid_propagate(False)
+        step2_frame.grid_columnconfigure(1, weight=1)
+        step2_frame.grid_columnconfigure(2, weight=0)
+
+        ctk.CTkLabel(
+            step2_frame,
+            text="ШАГ 2:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        ctk.CTkLabel(
+            step2_frame,
+            text="Вставьте код автоматизации ниже",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
 
         ctk.CTkButton(
-            action_frame,
+            step2_frame,
+            text="📂 Загрузить из файла",
+            command=self.import_from_file,
+            height=40,
+            width=200,
+            corner_radius=10,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).grid(row=0, column=2, padx=20, pady=15, sticky="e")
+
+        # ========== ШАГ 3: ЗАГРУЗИТЬ CSV ==========
+        step3_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary'],
+            height=80
+        )
+        step3_frame.grid(row=2, column=0, sticky="ew", padx=24, pady=8)
+        step3_frame.grid_propagate(False)
+        step3_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            step3_frame,
+            text="ШАГ 3:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        ctk.CTkLabel(
+            step3_frame,
+            text="Загрузите CSV с данными для автоматизации",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
+
+        self.csv_status_label = ctk.CTkLabel(
+            step3_frame,
+            text="Не загружен",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['accent_error']
+        )
+        self.csv_status_label.grid(row=0, column=2, padx=(10, 10), pady=15, sticky="e")
+
+        ctk.CTkButton(
+            step3_frame,
             text="📊 Загрузить CSV",
             command=self.load_csv,
-            height=56,
-            corner_radius=16,
+            height=40,
+            width=200,
+            corner_radius=10,
             fg_color=self.theme['accent_warning'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold')
-        ).grid(row=0, column=4, padx=4, sticky="ew")
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).grid(row=0, column=3, padx=20, pady=15, sticky="e")
 
-        ctk.CTkButton(
-            action_frame,
-            text="🗑️ Очистить лог",
-            command=self.clear_logs,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_secondary'],
-            hover_color=self.theme['bg_hover'],
-            font=(ModernTheme.FONT['family'], 13, 'bold')
-        ).grid(row=0, column=5, padx=4, sticky="ew")
+        # ========== ШАГ 4: НАСТРОЙКИ И ГЕНЕРАЦИЯ ==========
+        step4_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary']
+        )
+        step4_frame.grid(row=3, column=0, sticky="ew", padx=24, pady=8)
+        step4_frame.grid_columnconfigure(0, weight=1)
 
-        # Control buttons
+        # Заголовок шага 4
+        step4_header = ctk.CTkFrame(step4_frame, fg_color="transparent")
+        step4_header.grid(row=0, column=0, sticky="ew", padx=20, pady=(15, 10))
+
+        ctk.CTkLabel(
+            step4_header,
+            text="ШАГ 4:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkLabel(
+            step4_header,
+            text="Настройки генерации (опционально)",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).pack(side="left")
+
+        # Настройки таймаутов
+        timeouts_frame = ctk.CTkFrame(step4_frame, fg_color=self.theme['bg_secondary'], corner_radius=8)
+        timeouts_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 15))
+        timeouts_frame.grid_columnconfigure((1, 3, 5), weight=1)
+
+        # Таймаут кликов
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Таймаут кликов:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.click_timeout_var = tk.StringVar(value="10")
+        click_timeout_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.click_timeout_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        click_timeout_entry.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 5-10 с умными селекторами)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # Таймаут навигации
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Таймаут навигации:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=1, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.navigation_timeout_var = tk.StringVar(value="15")
+        navigation_timeout_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.navigation_timeout_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        navigation_timeout_entry.grid(row=1, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 10-15 с check_heading)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=1, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # Задержка между действиями
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Задержка между действиями:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=2, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.action_delay_var = tk.StringVar(value="0.5")
+        action_delay_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.action_delay_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        action_delay_entry.grid(row=2, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 0.3-1.0 для стабильности)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=2, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # ========== КНОПКИ ДЕЙСТВИЙ ==========
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=2, column=0, sticky="ew", padx=24, pady=24)
+        btn_frame.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 24))
         btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # 🔥 6 кнопок
+        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
-        # 🔥 НОВАЯ КНОПКА: Generate Script
+        # Кнопка генерации
         ctk.CTkButton(
             btn_frame,
-            text="⚙️ GENERATE",
+            text="✨ ГЕНЕРИРОВАТЬ",
             command=self.generate_playwright_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_primary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=8, sticky="ew")
+        ).grid(row=0, column=0, padx=4, sticky="ew")
 
+        # Кнопка запуска
         self.run_btn = ctk.CTkButton(
             btn_frame,
-            text="▶️ RUN",
+            text="▶️ ЗАПУСТИТЬ",
             command=self.start_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_success'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.run_btn.grid(row=0, column=1, padx=8, sticky="ew")
+        self.run_btn.grid(row=0, column=1, padx=4, sticky="ew")
 
+        # Кнопка остановки
         self.stop_btn = ctk.CTkButton(
             btn_frame,
-            text="⏹️ STOP",
+            text="⏹️ ОСТАНОВИТЬ",
             command=self.stop_script,
             height=56,
             corner_radius=16,
@@ -533,38 +670,32 @@ class ModernAppV3(ctk.CTk):
             state="disabled",
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.stop_btn.grid(row=0, column=2, padx=8, sticky="ew")
+        self.stop_btn.grid(row=0, column=2, padx=4, sticky="ew")
 
+        # Дополнительная кнопка стоп (для совместимости)
+        self.stop_btn_main = self.stop_btn
+
+        # Кнопка сохранения
         ctk.CTkButton(
             btn_frame,
-            text="💾 SAVE",
+            text="💾 СОХРАНИТЬ",
             command=self.save_script,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_info'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=3, padx=8, sticky="ew")
+        ).grid(row=0, column=3, padx=4, sticky="ew")
 
+        # Кнопка очистки логов
         ctk.CTkButton(
             btn_frame,
-            text="🔄 RELOAD",
-            command=self.reload_script,
+            text="🗑️ ОЧИСТИТЬ ЛОГ",
+            command=self.clear_logs,
             height=56,
             corner_radius=16,
             fg_color=self.theme['accent_secondary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=4, padx=8, sticky="ew")
-
-        # 🔥 НОВАЯ КНОПКА: Load CSV
-        ctk.CTkButton(
-            btn_frame,
-            text="📂 CSV",
-            command=self.load_csv,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_warning'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=5, padx=8, sticky="ew")
+        ).grid(row=0, column=4, padx=4, sticky="ew")
 
         # Code editor
         editor_container = ctk.CTkFrame(
@@ -1070,6 +1201,13 @@ class ModernAppV3(ctk.CTk):
             filename = Path(filepath).name
             self.toast.success(f"📂 Загружено: {filename} ({len(rows)} строк)")
             self.append_log(f"[CSV] Загружен файл: {filename}, строк: {len(rows)}", "SUCCESS")
+
+            # Обновить статус в интерфейсе
+            if hasattr(self, 'csv_status_label'):
+                self.csv_status_label.configure(
+                    text=f"✅ {filename} ({len(rows)} строк)",
+                    text_color=self.theme['accent_success']
+                )
 
             # Показать первую строку для проверки
             if rows:
