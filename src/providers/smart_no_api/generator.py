@@ -145,11 +145,12 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
     if {geolocation_json}:
         profile_data['geolocation'] = {geolocation_json}
 
-    # Retry logic для rate limits
+    # Retry logic для rate limits и timeouts
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            response = requests.post(url, headers=headers, json=profile_data, timeout=30)
+            print(f"[PROFILE] Отправка запроса на создание профиля (timeout=60s)...")
+            response = requests.post(url, headers=headers, json=profile_data, timeout=60)
             print(f"[PROFILE] API Response Status: {{response.status_code}}")
 
             if response.status_code == 429:
@@ -172,6 +173,28 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
                     return None
             else:
                 print(f"[PROFILE] [ERROR] Ошибка API: {{response.status_code}} - {{response.text}}")
+                return None
+        except requests.exceptions.Timeout:
+            print(f"[PROFILE] [ERROR] Timeout при создании профиля (60s)")
+            print(f"[PROFILE] [!] API не ответил вовремя, попытка {{attempt+1}}/{{max_retries}}")
+            if attempt < max_retries - 1:
+                wait_time = 5
+                print(f"[PROFILE] Ожидание {{wait_time}}s перед повторной попыткой...")
+                time.sleep(wait_time)
+                continue
+            else:
+                print(f"[PROFILE] [ERROR] Все попытки исчерпаны")
+                return None
+        except (requests.exceptions.ConnectionError, ConnectionResetError) as e:
+            print(f"[PROFILE] [ERROR] Соединение разорвано: {{str(e)[:100]}}")
+            print(f"[PROFILE] [!] Возможные причины: прокси, перегрузка API, попытка {{attempt+1}}/{{max_retries}}")
+            if attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 3  # 3s, 6s, 9s
+                print(f"[PROFILE] Ожидание {{wait_time}}s перед повторной попыткой...")
+                time.sleep(wait_time)
+                continue
+            else:
+                print(f"[PROFILE] [ERROR] Все попытки исчерпаны после разрыва соединения")
                 return None
         except Exception as e:
             print(f"[PROFILE] [ERROR] Exception при создании: {{e}}")
@@ -428,6 +451,12 @@ def main():
         print(f"\\n{'#'*60}")
         print(f"# ROW {iteration_number}/{len(csv_data)}")
         print(f"{'#'*60}")
+
+        # Задержка между итерациями для предотвращения перегрузки API
+        if iteration_number > 1:
+            wait_time = 2
+            print(f"[API] Задержка {wait_time}s перед созданием следующего профиля...")
+            time.sleep(wait_time)
 
         profile_uuid = None
 
