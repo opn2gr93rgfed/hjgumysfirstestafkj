@@ -110,7 +110,6 @@ PROXY_PASSWORD = "{proxy_config.get('password', '')}"
 
         fingerprint = profile_config.get('fingerprint') or {"os": "win"}
         tags = profile_config.get('tags', [])
-        notes = profile_config.get('notes', '')
         geolocation = profile_config.get('geolocation')
 
         fingerprint_json = json.dumps(fingerprint, ensure_ascii=False)
@@ -129,8 +128,7 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
     profile_data = {{
         "title": title,
         "fingerprint": {fingerprint_json},
-        "tags": {tags_json},
-        "notes": "{notes}"
+        "tags": {tags_json}
     }}
 
     if {geolocation_json}:

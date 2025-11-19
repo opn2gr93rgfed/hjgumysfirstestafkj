@@ -110,7 +110,6 @@ NAVIGATION_TIMEOUT = 60000  # 60 секунд
 
         fingerprint = profile_config.get('fingerprint') or {"os": "win"}
         tags = profile_config.get('tags', [])
-        notes = profile_config.get('notes', '')
         geolocation = profile_config.get('geolocation')
 
         fingerprint_json = json.dumps(fingerprint, ensure_ascii=False)
@@ -129,8 +128,7 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
     profile_data = {{
         "title": title,
         "fingerprint": {fingerprint_json},
-        "tags": {tags_json},
-        "notes": "{notes}"
+        "tags": {tags_json}
     }}
 
     # Добавление прокси если включено
@@ -147,28 +145,42 @@ def create_profile(title: str = "Auto Profile") -> Optional[str]:
     if {geolocation_json}:
         profile_data['geolocation'] = {geolocation_json}
 
-    try:
-        response = requests.post(url, headers=headers, json=profile_data, timeout=30)
-        print(f"[PROFILE] API Response Status: {{response.status_code}}")
-        print(f"[PROFILE] API Response: {{response.text[:500]}}")
+    # Retry logic для rate limits
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, headers=headers, json=profile_data, timeout=30)
+            print(f"[PROFILE] API Response Status: {{response.status_code}}")
 
-        if response.status_code in [200, 201]:
-            result = response.json()
-            if result.get('success') and 'data' in result:
-                profile_uuid = result['data']['uuid']
-                print(f"[PROFILE] [OK] Профиль создан: {{profile_uuid}}")
-                return profile_uuid
+            if response.status_code == 429:
+                # Rate limit - retry with exponential backoff
+                wait_time = 2 ** attempt * 5  # 5s, 10s, 20s
+                print(f"[PROFILE] [!] Rate limit hit, waiting {{wait_time}}s before retry {{attempt+1}}/{{max_retries}}")
+                time.sleep(wait_time)
+                continue
+
+            print(f"[PROFILE] API Response: {{response.text[:500]}}")
+
+            if response.status_code in [200, 201]:
+                result = response.json()
+                if result.get('success') and 'data' in result:
+                    profile_uuid = result['data']['uuid']
+                    print(f"[PROFILE] [OK] Профиль создан: {{profile_uuid}}")
+                    return profile_uuid
+                else:
+                    print(f"[PROFILE] [ERROR] Неожиданный формат ответа: {{result}}")
+                    return None
             else:
-                print(f"[PROFILE] [ERROR] Неожиданный формат ответа: {{result}}")
+                print(f"[PROFILE] [ERROR] Ошибка API: {{response.status_code}} - {{response.text}}")
                 return None
-        else:
-            print(f"[PROFILE] [ERROR] Ошибка API: {{response.status_code}} - {{response.text}}")
+        except Exception as e:
+            print(f"[PROFILE] [ERROR] Exception при создании: {{e}}")
+            import traceback
+            traceback.print_exc()
             return None
-    except Exception as e:
-        print(f"[PROFILE] [ERROR] Exception при создании: {{e}}")
-        import traceback
-        traceback.print_exc()
-        return None
+
+    print(f"[PROFILE] [ERROR] Превышено число попыток создания профиля")
+    return None
 
 
 def start_profile(profile_uuid: str) -> Optional[Dict]:
