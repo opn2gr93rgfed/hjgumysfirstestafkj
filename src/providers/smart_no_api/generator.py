@@ -525,6 +525,10 @@ def load_csv_data() -> List[Dict]:
 
         Трансформирует:
         - page.get_by_role("heading", name="...").click() → check_heading(page, ["..."])
+        - Все page.* действия → обернуты в try-except для resilience
+
+        ФИЛОСОФИЯ: Сайты с динамическими опросниками показывают вопросы в разном порядке.
+        Действия должны продолжаться даже если элемент не найден - возможно другой вариант флоу.
 
         Оставляет только действия пользователя (page.goto, page.get_by_role, etc.)
         """
@@ -625,7 +629,130 @@ def load_csv_data() -> List[Dict]:
         if not cleaned_code.strip():
             return user_code
 
-        return cleaned_code
+        # Wrap all actions in resilient try-except blocks for dynamic flows
+        return self._wrap_actions_for_resilience(cleaned_code)
+
+    def _wrap_actions_for_resilience(self, code: str) -> str:
+        """
+        Обернуть все Playwright действия в try-except для resilience
+
+        ФИЛОСОФИЯ: Динамические опросники меняют порядок вопросов каждый раз.
+        Если кнопка/поле не найдено - это НОРМАЛЬНО, просто другой вариант флоу.
+        Продолжаем выполнение вместо остановки.
+
+        Оборачивает:
+        - page.click()
+        - page.fill()
+        - page.get_by_*().click()/fill()
+        - page.locator().click()/fill()
+        - with page.expect_popup() (критично - НЕ оборачиваем)
+        - page.goto() (критично - НЕ оборачиваем)
+        """
+        import re
+
+        lines = code.split('\n')
+        wrapped_lines = []
+        i = 0
+
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+
+            # Skip empty lines and comments
+            if not stripped or stripped.startswith('#'):
+                wrapped_lines.append(line)
+                i += 1
+                continue
+
+            # Get current indentation
+            indent = len(line) - len(line.lstrip())
+            indent_str = ' ' * indent
+
+            # Check if this is a critical action that should NOT be wrapped (must succeed)
+            is_critical = any(pattern in stripped for pattern in [
+                'page.goto(',
+                'with page.expect_popup(',
+                'with page.expect_navigation(',
+                'check_heading(',  # Already has resilience built-in
+                '= page',  # Variable assignments (page1 = ...)
+                'wait_for_navigation(',
+            ])
+
+            # Check if this is a resilient action (click, fill, etc.)
+            is_action = any(pattern in stripped for pattern in [
+                '.click(',
+                '.fill(',
+                '.select_option(',
+                '.check(',
+                '.uncheck(',
+                '.set_checked(',
+                '.press(',
+                '.type(',
+            ])
+
+            # Wrap action in try-except if it's resilient (not critical)
+            if is_action and not is_critical:
+                # Extract action description for logging
+                action_desc = self._extract_action_description(stripped)
+
+                wrapped_lines.append(f"{indent_str}try:")
+                wrapped_lines.append(f"{indent_str}    {stripped}")
+                wrapped_lines.append(f"{indent_str}except PlaywrightTimeout:")
+                wrapped_lines.append(f"{indent_str}    print(f'[ACTION] [WARNING] Timeout: {action_desc}')")
+                wrapped_lines.append(f"{indent_str}    print(f'[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...')")
+                wrapped_lines.append(f"{indent_str}    pass  # Continue execution")
+            else:
+                # Keep as-is (critical actions or non-actions)
+                wrapped_lines.append(line)
+
+            i += 1
+
+        return '\n'.join(wrapped_lines)
+
+    def _extract_action_description(self, line: str) -> str:
+        """Извлечь описание действия для логирования"""
+        import re
+
+        # Try to extract element description from various patterns
+
+        # page.get_by_role("button", name="Next").click()
+        match = re.search(r'get_by_role\(["\'](\w+)["\']\s*,\s*name=["\']([^"\']+)["\']', line)
+        if match:
+            role, name = match.groups()
+            action = 'click' if '.click(' in line else 'fill' if '.fill(' in line else 'action'
+            return f"{action} {role} '{name}'"
+
+        # page.get_by_text("Continue").click()
+        match = re.search(r'get_by_text\(["\']([^"\']+)["\']', line)
+        if match:
+            text = match.group(1)
+            action = 'click' if '.click(' in line else 'action'
+            return f"{action} text '{text}'"
+
+        # page.get_by_placeholder("Enter name").fill(value)
+        match = re.search(r'get_by_placeholder\(["\']([^"\']+)["\']', line)
+        if match:
+            placeholder = match.group(1)
+            return f"fill placeholder '{placeholder}'"
+
+        # page.locator("#id").click()
+        match = re.search(r'locator\(["\']([^"\']+)["\']', line)
+        if match:
+            selector = match.group(1)
+            action = 'click' if '.click(' in line else 'fill' if '.fill(' in line else 'action'
+            return f"{action} '{selector}'"
+
+        # Default: show the method being called
+        if '.click(' in line:
+            return "click element"
+        elif '.fill(' in line:
+            return "fill field"
+        elif '.select_option(' in line:
+            return "select option"
+        elif '.check(' in line:
+            return "check checkbox"
+
+        return "action"
 
     def _generate_main_iteration(self, user_code: str) -> str:
         # Clean user code from Playwright Recorder boilerplate
