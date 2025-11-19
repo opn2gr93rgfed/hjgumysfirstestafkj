@@ -653,6 +653,8 @@ def load_csv_data() -> List[Dict]:
         lines = code.split('\n')
         wrapped_lines = []
         i = 0
+        inside_with_block = False
+        with_block_indent = 0
 
         while i < len(lines):
             line = lines[i]
@@ -668,6 +670,14 @@ def load_csv_data() -> List[Dict]:
             indent = len(line) - len(line.lstrip())
             indent_str = ' ' * indent
 
+            # Track if we're inside a 'with' block
+            if 'with page.expect_popup(' in stripped or 'with page.expect_navigation(' in stripped:
+                inside_with_block = True
+                with_block_indent = indent
+            elif inside_with_block and indent <= with_block_indent:
+                # Exited the 'with' block
+                inside_with_block = False
+
             # Check if this is a critical action that should NOT be wrapped (must succeed)
             is_critical = any(pattern in stripped for pattern in [
                 'page.goto(',
@@ -680,6 +690,10 @@ def load_csv_data() -> List[Dict]:
                 'page2.',
                 'page3.',
             ])
+
+            # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
+            if inside_with_block and indent > with_block_indent:
+                is_critical = True
 
             # Check if this is a resilient action (click, fill, etc.)
             is_action = any(pattern in stripped for pattern in [
