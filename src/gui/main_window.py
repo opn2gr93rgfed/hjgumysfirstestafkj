@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
 from src.generator.playwright_script_generator import PlaywrightScriptGenerator
+from src.generator.no_otp_generator import NoOTPGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
@@ -43,6 +44,7 @@ class OctobrowserScriptBuilder:
         self.api = None
         self.generator = ScriptGenerator()  # Selenium генератор
         self.playwright_generator = PlaywrightScriptGenerator()  # Playwright генератор
+        self.no_otp_generator = NoOTPGenerator()  # NO OTP генератор
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()

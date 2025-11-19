@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
 from src.generator.playwright_script_generator import PlaywrightScriptGenerator
+from src.generator.no_otp_generator import NoOTPGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
@@ -74,6 +75,7 @@ class ModernApp(ctk.CTk):
         self.api: Optional[OctobrowserAPI] = None
         self.generator = ScriptGenerator()
         self.playwright_generator = PlaywrightScriptGenerator()
+        self.no_otp_generator = NoOTPGenerator()
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_log)
         self.parser = ScriptParser()

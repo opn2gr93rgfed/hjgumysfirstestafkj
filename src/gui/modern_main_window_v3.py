@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.api.octobrowser_api import OctobrowserAPI
 from src.generator.script_generator import ScriptGenerator
 from src.generator.playwright_script_generator import PlaywrightScriptGenerator
+from src.generator.no_otp_generator import NoOTPGenerator
 from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
@@ -70,6 +71,7 @@ class ModernAppV3(ctk.CTk):
         self.api: Optional[OctobrowserAPI] = None
         self.generator = ScriptGenerator()
         self.playwright_generator = PlaywrightScriptGenerator()
+        self.no_otp_generator = NoOTPGenerator()
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_log)
         self.parser = ScriptParser()
@@ -385,11 +387,34 @@ class ModernAppV3(ctk.CTk):
         """Настроить вкладку Preview & Edit"""
         tab = self.tab_edit
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(1, weight=1)
+        tab.grid_rowconfigure(2, weight=1)
+
+        # Generator selector
+        selector_frame = ctk.CTkFrame(tab, fg_color="transparent", height=60)
+        selector_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 0))
+        selector_frame.grid_propagate(False)
+
+        ctk.CTkLabel(
+            selector_frame,
+            text="Script Generator:",
+            font=(ModernTheme.FONT['family'], 12, 'bold'),
+            text_color=self.theme['text_primary']
+        ).pack(side="left", padx=(0, 12))
+
+        self.generator_selector = ctk.CTkComboBox(
+            selector_frame,
+            values=["No OTP (default)", "With OTP (future)"],
+            width=200,
+            height=36,
+            font=(ModernTheme.FONT['family'], 11),
+            state="readonly"
+        )
+        self.generator_selector.set("No OTP (default)")
+        self.generator_selector.pack(side="left")
 
         # Control buttons
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
+        btn_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=24)
         btn_frame.grid_propagate(False)
         btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # 🔥 6 кнопок
 
@@ -776,9 +801,17 @@ class ModernAppV3(ctk.CTk):
 
             print(f"[DEBUG] Длина user_code: {len(user_code)} символов")  # DEBUG
 
+            # Выбрать генератор
+            selected_generator = self.generator_selector.get()
+            if "No OTP" in selected_generator:
+                generator = self.no_otp_generator
+                self.append_log("[INFO] Генерация Playwright скрипта (NO OTP)...", "INFO")
+            else:
+                generator = self.playwright_generator
+                self.append_log("[INFO] Генерация Playwright скрипта (WITH OTP)...", "INFO")
+
             # Генерация скрипта
-            self.append_log("[INFO] Генерация Playwright скрипта...", "INFO")
-            generated_script = self.playwright_generator.generate_script(user_code, config)
+            generated_script = generator.generate_script(user_code, config)
 
             # Вставить в редактор
             self.code_editor.delete("1.0", "end")
