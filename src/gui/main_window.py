@@ -47,7 +47,11 @@ class OctobrowserScriptBuilder:
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
-        self.playwright_parser = PlaywrightParser()
+        # PlaywrightParser с поддержкой OTP (передаем otp_enabled из конфига)
+        otp_enabled = self.config.get('otp', {}).get('enabled', False)
+        self.playwright_parser = PlaywrightParser(otp_enabled=otp_enabled)
+        if not otp_enabled:
+            print("[OTP] OTP handler disabled by config")
 
         # SMS провайдеры
         self.sms_provider_manager = ProviderManager()

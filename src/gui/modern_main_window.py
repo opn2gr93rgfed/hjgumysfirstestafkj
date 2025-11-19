@@ -78,7 +78,11 @@ class ModernApp(ctk.CTk):
         self.runner.set_output_callback(self.append_log)
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
-        self.playwright_parser = PlaywrightParser()
+        # PlaywrightParser с поддержкой OTP (передаем otp_enabled из конфига)
+        otp_enabled = self.config.get('otp', {}).get('enabled', False)
+        self.playwright_parser = PlaywrightParser(otp_enabled=otp_enabled)
+        if not otp_enabled:
+            print("[OTP] OTP handler disabled by config")
         self.sms_provider_manager = ProviderManager()
         self.dynamic_field_manager = DynamicFieldManager()
 

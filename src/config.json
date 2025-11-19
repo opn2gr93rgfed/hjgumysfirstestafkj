@@ -8,6 +8,10 @@
     "api_key": "",
     "service": "ds"
   },
+  "otp": {
+    "enabled": false,
+    "auto_detect_fields": false
+  },
   "proxy": {
     "enabled": false,
     "type": "http",

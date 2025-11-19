@@ -329,9 +329,34 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         )
         self.notes_textbox.pack(fill="both", padx=16, pady=16)
 
+        # === ADVANCED SETTINGS ===
+        advanced_section = self.create_collapsible_section(
+            "⚙️ Advanced Settings",
+            row=7
+        )
+
+        # OTP Handler Enable/Disable
+        self.otp_enabled_var = tk.BooleanVar(value=False)
+        otp_switch = ctk.CTkSwitch(
+            advanced_section,
+            text="Enable OTP/SMS Handler (for verification codes)",
+            variable=self.otp_enabled_var,
+            font=('Segoe UI', 11)
+        )
+        otp_switch.pack(anchor="w", padx=16, pady=16)
+
+        ctk.CTkLabel(
+            advanced_section,
+            text="⚠️ Note: Disable this if regular input fields (like ZIP code) are detected as OTP fields",
+            font=('Segoe UI', 9),
+            text_color=self.theme.get('text_muted', '#888888'),
+            anchor="w",
+            wraplength=600
+        ).pack(anchor="w", padx=16, pady=(0, 16))
+
         # === BUTTONS FRAME ===
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.grid(row=7, column=0, padx=32, pady=32, sticky="ew")
+        buttons_frame.grid(row=8, column=0, padx=32, pady=32, sticky="ew")
         buttons_frame.grid_columnconfigure(0, weight=1)
         buttons_frame.grid_columnconfigure(1, weight=1)
 
@@ -607,7 +632,13 @@ class OctoAPITab(ctk.CTkScrollableFrame):
         self.config['geolocation']['latitude'] = self.lat_entry.get().strip()
         self.config['geolocation']['longitude'] = self.lon_entry.get().strip()
 
+        # OTP Handler
+        self.config.setdefault('otp', {})
+        self.config['otp']['enabled'] = self.otp_enabled_var.get()
+        self.config['otp']['auto_detect_fields'] = self.otp_enabled_var.get()
+
         print(f"[OCTO_TAB] ✅ Config обновлён в памяти")
+        print(f"[OCTO_TAB] OTP enabled: {self.config['otp']['enabled']}")
         print(f"[OCTO_TAB] Токен в self.config: {self.config.get('octobrowser', {}).get('api_token', '')[:10]}...")
 
         # 🔥 ЦЕНТРАЛИЗОВАННОЕ СОХРАНЕНИЕ через callback
@@ -665,6 +696,12 @@ class OctoAPITab(ctk.CTkScrollableFrame):
             lon = geo.get('longitude', '')
             if lon:
                 self.lon_entry.insert(0, lon)
+
+        # OTP Handler
+        otp_config = self.config.get('otp', {})
+        otp_enabled = otp_config.get('enabled', False)
+        self.otp_enabled_var.set(otp_enabled)
+        print(f"[OCTO_TAB] Загружен OTP enabled: {otp_enabled}")
 
     def get_profile_config(self) -> Dict:
         """

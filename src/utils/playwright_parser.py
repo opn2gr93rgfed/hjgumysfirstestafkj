@@ -11,11 +11,12 @@ from .phone_detector import PhoneAndOTPDetector
 class PlaywrightParser:
     """Парсер для Playwright тестов"""
 
-    def __init__(self):
+    def __init__(self, otp_enabled: bool = False):
         self.extracted_values = []  # Извлеченные значения для параметризации
         self.variable_names = []     # Имена переменных
         self.field_types = []         # Типы полей ('phone', 'otp', 'unknown')
         self.detector = PhoneAndOTPDetector()
+        self.otp_enabled = otp_enabled  # Флаг включения OTP-обработки
 
         # Ручные подсказки от пользователя
         self.manual_phone_value = None  # Значение номера телефона из кода (например: "8434756290")
@@ -783,8 +784,8 @@ class PlaywrightParser:
                 var_name = self.variable_names[var_index] if var_index < len(self.variable_names) else f'field_{var_index + 1}'
                 field_type = self.field_types[var_index] if var_index < len(self.field_types) else 'unknown'
 
-                # СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ OTP (с RETRY!)
-                if field_type == 'otp' and var_name.startswith('otp'):
+                # СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ OTP (с RETRY!) - ТОЛЬКО если OTP включен
+                if self.otp_enabled and field_type == 'otp' and var_name.startswith('otp'):
                     code_lines.append(f'# ========== ПОЛУЧЕНИЕ OTP (ТОЛЬКО если SMS включен) ==========')
                     code_lines.append(f'if USE_SMS_PROVIDER and sms_activation_id:')
                     code_lines.append(f'    print("[OTP] Ожидание OTP кода...")')
@@ -860,6 +861,8 @@ class PlaywrightParser:
                     code_lines.append(f'if not otp_entered:')
                     code_lines.append(f'    print("[OTP CRITICAL] Не удалось ввести OTP после всех стратегий!")')
                     code_lines.append('')
+
+                    # TODO: OTP-module v2 — вынести в отдельный плагин, поддержка разных провайдеров SMS (sms-activate, 5sim и т.д.)
 
                 # ОБЫЧНЫЕ ПОЛЯ (с имитацией человеческого ввода)
                 else:
