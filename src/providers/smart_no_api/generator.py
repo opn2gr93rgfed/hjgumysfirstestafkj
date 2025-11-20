@@ -795,12 +795,6 @@ def load_csv_data() -> List[Dict]:
                 wrapped_lines.append(f"{indent_str}            time.sleep(delay)")
                 wrapped_lines.append(f"{indent_str}            # Wait for page to stabilize")
                 wrapped_lines.append(f"{indent_str}            {page_var}.wait_for_load_state('domcontentloaded', timeout=5000)")
-                wrapped_lines.append(f"{indent_str}            # Scroll to bottom first to trigger lazy loading")
-                wrapped_lines.append(f"{indent_str}            {page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-                wrapped_lines.append(f"{indent_str}            time.sleep(0.5)")
-                wrapped_lines.append(f"{indent_str}            # Scroll back to middle for element visibility")
-                wrapped_lines.append(f"{indent_str}            {page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
-                wrapped_lines.append(f"{indent_str}            time.sleep(0.3)")
 
                 # Add scroll_into_view_if_needed for actions with selectors
                 if has_selector and '.click()' in stripped:
@@ -882,14 +876,7 @@ def load_csv_data() -> List[Dict]:
                         wrapped_lines.append(f"{indent_str}except:")
                         wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network idle timeout - continuing anyway")')
                         wrapped_lines.append(f"{indent_str}    pass")
-                        wrapped_lines.append(f"{indent_str}# Scroll down to load bottom elements (like 'See more')")
-                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
-                        wrapped_lines.append(f"{indent_str}# Scroll to middle position (50%) for element visibility")
-                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
-                        wrapped_lines.append(f"{indent_str}time.sleep(0.3)")
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled to middle position")')
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Elements at 50-75% position should now be visible")')
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded - use #scrolldown/#scrollmid for manual scroll control")')
 
             i += 1
 
