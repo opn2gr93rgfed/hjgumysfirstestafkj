@@ -743,6 +743,9 @@ def load_csv_data() -> List[Dict]:
                 '.type(',
             ])
 
+            # Check if this is a popup page action (page1/page2/page3) that needs retry logic
+            is_popup_action = is_action and any(f'page{n}.' in stripped for n in [1, 2, 3])
+
             # Wrap action in try-except if it's resilient (not critical)
             if is_action and not is_critical:
                 # Extract action description for logging (sanitize quotes)
@@ -760,6 +763,36 @@ def load_csv_data() -> List[Dict]:
                 wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [WARNING] Timeout: {action_desc}")')
                 wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...")')
                 wrapped_lines.append(f"{indent_str}    pass  # Continue execution")
+            elif is_popup_action and is_critical:
+                # Popup page actions need retry logic with extended timeout
+                action_desc = self._extract_action_description(stripped)
+                action_desc = action_desc.replace("'", "'").replace("'", "'").replace('"', '\\"')
+                sanitized_code = stripped.replace("'", "'").replace("'", "'")
+
+                # Extract page variable
+                import re
+                match = re.search(r'(page\d+)\.', stripped)
+                page_var = match.group(1) if match else 'page1'
+
+                wrapped_lines.append(f"{indent_str}# Retry logic for popup page action (page may load slowly)")
+                wrapped_lines.append(f"{indent_str}max_retries = 5")
+                wrapped_lines.append(f"{indent_str}for retry_attempt in range(max_retries):")
+                wrapped_lines.append(f"{indent_str}    try:")
+                wrapped_lines.append(f"{indent_str}        if retry_attempt > 0:")
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Attempt {{retry_attempt+1}}/{{max_retries}}: {action_desc}")')
+                wrapped_lines.append(f"{indent_str}            # Wait for page to stabilize between retries")
+                wrapped_lines.append(f"{indent_str}            time.sleep(2)")
+                wrapped_lines.append(f"{indent_str}            {page_var}.wait_for_load_state('domcontentloaded', timeout=5000)")
+                wrapped_lines.append(f"{indent_str}        {sanitized_code}")
+                wrapped_lines.append(f'{indent_str}        print(f"[POPUP_ACTION] [OK] {action_desc}")')
+                wrapped_lines.append(f"{indent_str}        break  # Success - exit retry loop")
+                wrapped_lines.append(f"{indent_str}    except PlaywrightTimeout:")
+                wrapped_lines.append(f"{indent_str}        if retry_attempt == max_retries - 1:")
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [ERROR] Failed after {{max_retries}} attempts: {action_desc}")')
+                wrapped_lines.append(f"{indent_str}            raise  # Re-raise on final attempt")
+                wrapped_lines.append(f"{indent_str}        else:")
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Timeout on attempt {{retry_attempt+1}}, retrying...")')
+                wrapped_lines.append(f"{indent_str}            continue")
             else:
                 # Keep as-is (critical actions or non-actions)
                 # But still sanitize curly quotes in critical code
@@ -784,9 +817,15 @@ def load_csv_data() -> List[Dict]:
                         page_var = match.group(1)
                         # Update current page context for special commands
                         current_page_context = page_var
-                        wrapped_lines.append(f"{indent_str}# Wait for popup page to load and scroll for verification")
-                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+                        wrapped_lines.append(f"{indent_str}# Wait for popup page to load and stabilize")
+                        wrapped_lines.append(f"{indent_str}time.sleep(1.5)  # Extended wait for popup to fully load")
                         wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
+                        wrapped_lines.append(f"{indent_str}try:")
+                        wrapped_lines.append(f"{indent_str}    {page_var}.wait_for_load_state('networkidle', timeout=10000)")
+                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network stabilized on {page_var}")')
+                        wrapped_lines.append(f"{indent_str}except:")
+                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network idle timeout - continuing anyway")')
+                        wrapped_lines.append(f"{indent_str}    pass")
                         wrapped_lines.append(f"{indent_str}# Scroll down to load bottom elements (like 'See more')")
                         wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
                         wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
@@ -795,21 +834,6 @@ def load_csv_data() -> List[Dict]:
                         wrapped_lines.append(f"{indent_str}time.sleep(0.3)")
                         wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled to middle position")')
                         wrapped_lines.append(f'{indent_str}print(f"[POPUP] Elements at 50-75% position should now be visible")')
-
-                # Auto-wait and scroll after popup page clicks (page1.click, page2.click, etc.)
-                elif is_action and any(f'page{n}.' in stripped for n in [1, 2, 3]):
-                    # Extract page variable (page1, page2, etc.)
-                    import re
-                    match = re.search(r'(page\d+)\.', stripped)
-                    if match and '.click(' in stripped:
-                        page_var = match.group(1)
-                        wrapped_lines.append(f"{indent_str}# Wait for content to load after click")
-                        wrapped_lines.append(f"{indent_str}time.sleep(1)")
-                        wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
-                        wrapped_lines.append(f"{indent_str}# Scroll down to load any new content")
-                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Content loaded and scrolled after click")')
 
             i += 1
 
