@@ -787,11 +787,11 @@ def load_csv_data() -> List[Dict]:
                         wrapped_lines.append(f"{indent_str}# Scroll down to load bottom elements (like 'See more')")
                         wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
                         wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
-                        wrapped_lines.append(f"{indent_str}# Scroll back up for visibility")
-                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, 0)')")
+                        wrapped_lines.append(f"{indent_str}# Scroll to middle position (50%) for element visibility")
+                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
                         wrapped_lines.append(f"{indent_str}time.sleep(0.3)")
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled for verification")')
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Страница {page_var} готова к взаимодействию")')
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled to middle position")')
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Elements at 50-75% position should now be visible")')
 
                 # Auto-wait and scroll after popup page clicks (page1.click, page2.click, etc.)
                 elif is_action and any(f'page{n}.' in stripped for n in [1, 2, 3]):
