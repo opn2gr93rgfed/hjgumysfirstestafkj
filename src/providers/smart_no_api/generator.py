@@ -775,29 +775,79 @@ def load_csv_data() -> List[Dict]:
                 action_desc = action_desc.replace("'", "'").replace("'", "'").replace('"', '\\"')
                 sanitized_code = stripped.replace("'", "'").replace("'", "'")
 
-                # Extract page variable
+                # Extract page variable and selector for smart handling
                 import re
                 match = re.search(r'(page\d+)\.', stripped)
                 page_var = match.group(1) if match else 'page1'
 
-                wrapped_lines.append(f"{indent_str}# Retry logic for popup page action (page may load slowly)")
+                # Extract selector information for element checking
+                selector_match = re.search(r'\.get_by_\w+\([^)]+\)', stripped) or re.search(r'\.locator\([^)]+\)', stripped)
+                has_selector = bool(selector_match)
+
+                wrapped_lines.append(f"{indent_str}# Retry logic for popup page action with progressive delays and smart scrolling")
                 wrapped_lines.append(f"{indent_str}max_retries = 5")
+                wrapped_lines.append(f"{indent_str}progressive_delays = [5, 10, 15, 20, 30]  # Progressive delays in seconds")
                 wrapped_lines.append(f"{indent_str}for retry_attempt in range(max_retries):")
                 wrapped_lines.append(f"{indent_str}    try:")
                 wrapped_lines.append(f"{indent_str}        if retry_attempt > 0:")
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Attempt {{retry_attempt+1}}/{{max_retries}}: {action_desc}")')
-                wrapped_lines.append(f"{indent_str}            # Wait for page to stabilize between retries (extended to 10s)")
-                wrapped_lines.append(f"{indent_str}            time.sleep(10)")
+                wrapped_lines.append(f'{indent_str}            delay = progressive_delays[retry_attempt - 1]')
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Attempt {{retry_attempt+1}}/{{max_retries}} (waiting {{delay}}s): {action_desc}")')
+                wrapped_lines.append(f"{indent_str}            time.sleep(delay)")
+                wrapped_lines.append(f"{indent_str}            # Wait for page to stabilize")
                 wrapped_lines.append(f"{indent_str}            {page_var}.wait_for_load_state('domcontentloaded', timeout=5000)")
-                wrapped_lines.append(f"{indent_str}        {sanitized_code}")
+                wrapped_lines.append(f"{indent_str}            # Scroll to bottom first to trigger lazy loading")
+                wrapped_lines.append(f"{indent_str}            {page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+                wrapped_lines.append(f"{indent_str}            time.sleep(0.5)")
+                wrapped_lines.append(f"{indent_str}            # Scroll back to middle for element visibility")
+                wrapped_lines.append(f"{indent_str}            {page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
+                wrapped_lines.append(f"{indent_str}            time.sleep(0.3)")
+
+                # Add scroll_into_view_if_needed for actions with selectors
+                if has_selector and '.click()' in stripped:
+                    # Extract the element locator part (everything before .click())
+                    click_pos = stripped.find('.click()')
+                    element_part = stripped[:click_pos].strip()
+                    wrapped_lines.append(f"{indent_str}        # Scroll element into view if needed")
+                    wrapped_lines.append(f"{indent_str}        try:")
+                    wrapped_lines.append(f"{indent_str}            element = {element_part}")
+                    wrapped_lines.append(f"{indent_str}            element.scroll_into_view_if_needed(timeout=3000)")
+                    wrapped_lines.append(f"{indent_str}            time.sleep(0.2)  # Wait for scroll animation")
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] Element scrolled into view")')
+                    wrapped_lines.append(f"{indent_str}        except:")
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [WARNING] Could not scroll element into view, attempting anyway...")')
+                    wrapped_lines.append(f"{indent_str}            pass")
+                    # Replace original code with element.click() since we already have element
+                    wrapped_lines.append(f"{indent_str}        element.click()")
+                else:
+                    wrapped_lines.append(f"{indent_str}        {sanitized_code}")
+
                 wrapped_lines.append(f'{indent_str}        print(f"[POPUP_ACTION] [OK] {action_desc}")')
                 wrapped_lines.append(f"{indent_str}        break  # Success - exit retry loop")
                 wrapped_lines.append(f"{indent_str}    except PlaywrightTimeout:")
                 wrapped_lines.append(f"{indent_str}        if retry_attempt == max_retries - 1:")
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [ERROR] Failed after {{max_retries}} attempts: {action_desc}")')
-                wrapped_lines.append(f"{indent_str}            raise  # Re-raise on final attempt")
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [ERROR] Failed after {{max_retries}} attempts (total {{sum(progressive_delays)}}s): {action_desc}")')
+                # Determine at generation time if this is an optional expandable button
+                optional_keywords = ['show more', 'see more', 'load more', 'view more', 'expand', 'показать больше']
+                action_lower = action_desc.lower()
+                is_optional_button = any(keyword in action_lower for keyword in optional_keywords)
+
+                if is_optional_button:
+                    # Generate code that treats this as optional
+                    wrapped_lines.append(f"{indent_str}            # Smart detection: This appears to be an optional expandable button")
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Button may not exist if content already loaded")')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Checking page state...")')
+                    wrapped_lines.append(f"{indent_str}            try:")
+                    wrapped_lines.append(f"{indent_str}                {page_var}.wait_for_load_state('domcontentloaded', timeout=3000)")
+                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [OK] Page stable - content likely already loaded, continuing...")')
+                    wrapped_lines.append(f"{indent_str}            except:")
+                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [WARNING] Page check failed but treating as optional")')
+                    wrapped_lines.append(f"{indent_str}            break  # Continue execution without raising error")
+                else:
+                    # Generate code that treats this as critical
+                    wrapped_lines.append(f"{indent_str}            raise  # Re-raise on final attempt for critical buttons")
+
                 wrapped_lines.append(f"{indent_str}        else:")
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Timeout on attempt {{retry_attempt+1}}, retrying...")')
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Timeout on attempt {{retry_attempt+1}}, retrying with longer delay...")')
                 wrapped_lines.append(f"{indent_str}            continue")
             else:
                 # Keep as-is (critical actions or non-actions)
