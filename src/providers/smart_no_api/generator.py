@@ -728,6 +728,14 @@ def load_csv_data() -> List[Dict]:
                 # Keep as-is (critical actions or non-actions)
                 # But still sanitize curly quotes in critical code
                 sanitized_line = line.replace("'", "'").replace("'", "'")
+
+                # Check for special command comments (e.g., #pause10, #scrolldown)
+                if stripped.startswith('#'):
+                    command_handled = self._handle_special_command(stripped, indent_str, wrapped_lines)
+                    if command_handled:
+                        i += 1
+                        continue
+
                 wrapped_lines.append(sanitized_line)
 
                 # If this is a popup page assignment, add scroll verification code
@@ -750,9 +758,104 @@ def load_csv_data() -> List[Dict]:
                         wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled for verification")')
                         wrapped_lines.append(f'{indent_str}print(f"[POPUP] Страница {page_var} готова к взаимодействию")')
 
+                # Auto-wait and scroll after popup page clicks (page1.click, page2.click, etc.)
+                elif is_action and any(f'page{n}.' in stripped for n in [1, 2, 3]):
+                    # Extract page variable (page1, page2, etc.)
+                    import re
+                    match = re.search(r'(page\d+)\.', stripped)
+                    if match and '.click(' in stripped:
+                        page_var = match.group(1)
+                        wrapped_lines.append(f"{indent_str}# Wait for content to load after click")
+                        wrapped_lines.append(f"{indent_str}time.sleep(1)")
+                        wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
+                        wrapped_lines.append(f"{indent_str}# Scroll down to load any new content")
+                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Content loaded and scrolled after click")')
+
             i += 1
 
         return '\n'.join(wrapped_lines)
+
+    def _handle_special_command(self, comment: str, indent_str: str, wrapped_lines: list) -> bool:
+        """
+        Обработать специальные команды в комментариях
+
+        Поддерживаемые команды:
+        - #pause5, #pause10, #pause20 - пауза N секунд
+        - #scrolldown, #scroll - скролл вниз до конца страницы
+        - #scrollup - скролл вверх к началу страницы
+        - #scrollmid - скролл к середине страницы
+
+        Returns:
+            True если команда обработана, False если это обычный комментарий
+        """
+        import re
+
+        comment_lower = comment.lower().strip()
+
+        # #pause5, #pause10, #pause20 - пауза N секунд
+        pause_match = re.match(r'#pause(\d+)', comment_lower)
+        if pause_match:
+            seconds = pause_match.group(1)
+            wrapped_lines.append(f"{indent_str}# User command: pause {seconds} seconds")
+            wrapped_lines.append(f"{indent_str}print(f'[PAUSE] Waiting {seconds} seconds...')")
+            wrapped_lines.append(f"{indent_str}time.sleep({seconds})")
+            wrapped_lines.append(f"{indent_str}print(f'[PAUSE] Resume')")
+            return True
+
+        # #scrolldown or #scroll - скролл вниз
+        if comment_lower in ['#scrolldown', '#scroll']:
+            wrapped_lines.append(f"{indent_str}# User command: scroll down")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling down...')")
+            # Try to detect which page context we're in
+            wrapped_lines.append(f"{indent_str}try:")
+            wrapped_lines.append(f"{indent_str}    # Try page1 first (most common in popup flows)")
+            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
+            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
+            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+            wrapped_lines.append(f"{indent_str}    else:")
+            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+            wrapped_lines.append(f"{indent_str}except:")
+            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+            return True
+
+        # #scrollup - скролл вверх
+        if comment_lower == '#scrollup':
+            wrapped_lines.append(f"{indent_str}# User command: scroll up")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling up...')")
+            wrapped_lines.append(f"{indent_str}try:")
+            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
+            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, 0)')")
+            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
+            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, 0)')")
+            wrapped_lines.append(f"{indent_str}    else:")
+            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, 0)')")
+            wrapped_lines.append(f"{indent_str}except:")
+            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+            return True
+
+        # #scrollmid - скролл к середине
+        if comment_lower == '#scrollmid':
+            wrapped_lines.append(f"{indent_str}# User command: scroll to middle")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling to middle...')")
+            wrapped_lines.append(f"{indent_str}try:")
+            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
+            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
+            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
+            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
+            wrapped_lines.append(f"{indent_str}    else:")
+            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
+            wrapped_lines.append(f"{indent_str}except:")
+            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+            return True
+
+        # Not a special command, just a regular comment
+        return False
 
     def _extract_action_description(self, line: str) -> str:
         """Извлечь описание действия для логирования"""
