@@ -534,6 +534,10 @@ def load_csv_data() -> List[Dict]:
         """
         import re
 
+        # CRITICAL FIX: Normalize tabs to spaces BEFORE processing
+        # This prevents TabError and IndentationError when user copies code with mixed tabs/spaces
+        user_code = user_code.replace('\t', '    ')  # Replace all tabs with 4 spaces
+
         lines = user_code.split('\n')
         cleaned_lines = []
         in_run_function = False
