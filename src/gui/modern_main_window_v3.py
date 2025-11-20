@@ -632,83 +632,79 @@ class ModernAppV3(ctk.CTk):
             text_color=self.theme['text_secondary']
         ).grid(row=2, column=2, padx=(5, 15), pady=10, sticky="w")
 
-        # ========== КНОПКИ ДЕЙСТВИЙ ==========
-        btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
+        # ========== КНОПКИ ДЕЙСТВИЙ (АДАПТИВНЫЙ LAYOUT 2x3) ==========
+        btn_frame = ctk.CTkFrame(tab, fg_color="transparent")
         btn_frame.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 24))
-        btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # Добавил колонку 5 для кнопки импорта
+        # Убрали фиксированную высоту и grid_propagate(False) - теперь адаптируется
+        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)  # 3 колонки
 
-        # Кнопка импорта (новая!)
+        # РЯД 1: Импорт, Генерация, Запуск
         ctk.CTkButton(
             btn_frame,
             text="📥 ИМПОРТ",
             command=self.import_from_clipboard,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_info'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=4, sticky="ew")
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=0, column=0, padx=4, pady=4, sticky="ew")
 
-        # Кнопка генерации
         ctk.CTkButton(
             btn_frame,
             text="✨ ГЕНЕРИРОВАТЬ",
             command=self.generate_playwright_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_primary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=1, padx=4, sticky="ew")  # Сдвиг на column=1
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=0, column=1, padx=4, pady=4, sticky="ew")
 
-        # Кнопка запуска
         self.run_btn = ctk.CTkButton(
             btn_frame,
             text="▶️ ЗАПУСТИТЬ",
             command=self.start_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_success'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
+            font=(ModernTheme.FONT['family'], 12, 'bold')
         )
-        self.run_btn.grid(row=0, column=2, padx=4, sticky="ew")  # Сдвиг на column=2
+        self.run_btn.grid(row=0, column=2, padx=4, pady=4, sticky="ew")
 
-        # Кнопка остановки
+        # РЯД 2: Остановить, Сохранить, Очистить
         self.stop_btn = ctk.CTkButton(
             btn_frame,
             text="⏹️ ОСТАНОВИТЬ",
             command=self.stop_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_error'],
             state="disabled",
-            font=(ModernTheme.FONT['family'], 14, 'bold')
+            font=(ModernTheme.FONT['family'], 12, 'bold')
         )
-        self.stop_btn.grid(row=0, column=3, padx=4, sticky="ew")  # Сдвиг на column=3
+        self.stop_btn.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
 
         # Дополнительная кнопка стоп (для совместимости)
         self.stop_btn_main = self.stop_btn
 
-        # Кнопка сохранения
         ctk.CTkButton(
             btn_frame,
             text="💾 СОХРАНИТЬ",
             command=self.save_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_info'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=4, padx=4, sticky="ew")  # Сдвиг на column=4
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=1, column=1, padx=4, pady=4, sticky="ew")
 
-        # Кнопка очистки логов
         ctk.CTkButton(
             btn_frame,
             text="🗑️ ОЧИСТИТЬ ЛОГ",
             command=self.clear_logs,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_secondary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=5, padx=4, sticky="ew")  # Сдвиг на column=5
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=1, column=2, padx=4, pady=4, sticky="ew")
 
         # Code editor
         editor_container = ctk.CTkFrame(
