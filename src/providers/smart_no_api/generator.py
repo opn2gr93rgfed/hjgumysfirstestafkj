@@ -656,6 +656,7 @@ def load_csv_data() -> List[Dict]:
         inside_with_block = False
         with_block_indent = 0
         next_action_optional = False  # Track #optional marker
+        current_page_context = 'page'  # Track current page context (page, page1, page2, page3)
 
         while i < len(lines):
             line = lines[i]
