@@ -722,14 +722,16 @@ def load_csv_data() -> List[Dict]:
                 'page3.',
             ])
 
+            # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
+            # BUT: if #optional marker was set, respect it even inside with blocks
+            if inside_with_block and indent > with_block_indent and not next_action_optional:
+                is_critical = True
+
             # If #optional marker was set, force this action to be non-critical
+            # This check MUST come AFTER with-block check to override it
             if next_action_optional:
                 is_critical = False
                 next_action_optional = False  # Reset marker
-
-            # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
-            if inside_with_block and indent > with_block_indent:
-                is_critical = True
 
             # Check if this is a resilient action (click, fill, etc.)
             is_action = any(pattern in stripped for pattern in [
