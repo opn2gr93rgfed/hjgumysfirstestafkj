@@ -636,7 +636,18 @@ class ModernAppV3(ctk.CTk):
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
         btn_frame.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 24))
         btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # Добавил колонку 5 для кнопки импорта
+
+        # Кнопка импорта (новая!)
+        ctk.CTkButton(
+            btn_frame,
+            text="📥 ИМПОРТ",
+            command=self.import_from_clipboard,
+            height=56,
+            corner_radius=16,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 14, 'bold')
+        ).grid(row=0, column=0, padx=4, sticky="ew")
 
         # Кнопка генерации
         ctk.CTkButton(
@@ -647,7 +658,7 @@ class ModernAppV3(ctk.CTk):
             corner_radius=16,
             fg_color=self.theme['accent_primary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=4, sticky="ew")
+        ).grid(row=0, column=1, padx=4, sticky="ew")  # Сдвиг на column=1
 
         # Кнопка запуска
         self.run_btn = ctk.CTkButton(
@@ -659,7 +670,7 @@ class ModernAppV3(ctk.CTk):
             fg_color=self.theme['accent_success'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.run_btn.grid(row=0, column=1, padx=4, sticky="ew")
+        self.run_btn.grid(row=0, column=2, padx=4, sticky="ew")  # Сдвиг на column=2
 
         # Кнопка остановки
         self.stop_btn = ctk.CTkButton(
@@ -672,7 +683,7 @@ class ModernAppV3(ctk.CTk):
             state="disabled",
             font=(ModernTheme.FONT['family'], 14, 'bold')
         )
-        self.stop_btn.grid(row=0, column=2, padx=4, sticky="ew")
+        self.stop_btn.grid(row=0, column=3, padx=4, sticky="ew")  # Сдвиг на column=3
 
         # Дополнительная кнопка стоп (для совместимости)
         self.stop_btn_main = self.stop_btn
@@ -686,7 +697,7 @@ class ModernAppV3(ctk.CTk):
             corner_radius=16,
             fg_color=self.theme['accent_info'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=3, padx=4, sticky="ew")
+        ).grid(row=0, column=4, padx=4, sticky="ew")  # Сдвиг на column=4
 
         # Кнопка очистки логов
         ctk.CTkButton(
@@ -697,7 +708,7 @@ class ModernAppV3(ctk.CTk):
             corner_radius=16,
             fg_color=self.theme['accent_secondary'],
             font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=4, padx=4, sticky="ew")
+        ).grid(row=0, column=5, padx=4, sticky="ew")  # Сдвиг на column=5
 
         # Code editor
         editor_container = ctk.CTkFrame(
