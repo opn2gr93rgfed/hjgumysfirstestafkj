@@ -713,20 +713,20 @@ def load_csv_data() -> List[Dict]:
                 is_critical = False
                 next_action_optional = False  # Reset marker
 
-            # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
-            if inside_with_block and indent > with_block_indent:
-                is_critical = True
-
             # Fix indentation if code inside 'with' block has no indent (common copy-paste issue)
             if inside_with_block and indent <= with_block_indent and stripped and not stripped.startswith('with'):
                 # We're inside a with block but line has same/less indent - FIX IT
                 # This happens when code is copy-pasted and loses indentation
                 print(f"[GENERATOR] [WARNING] Fixed indentation inside 'with' block for: {stripped[:50]}")
-                # Add 4 spaces indent
-                sanitized_line = ' ' * (with_block_indent + 4) + stripped
+                # Add 4 spaces indent - update the actual line
+                line = ' ' * (with_block_indent + 4) + stripped
+                stripped = line.strip()  # Keep stripped version updated
                 indent = with_block_indent + 4  # Update indent for further processing
                 indent_str = ' ' * indent
-                is_critical = True  # Code inside with is critical
+
+            # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
+            if inside_with_block and indent > with_block_indent:
+                is_critical = True
 
             # Check if this is a resilient action (click, fill, etc.)
             is_action = any(pattern in stripped for pattern in [
