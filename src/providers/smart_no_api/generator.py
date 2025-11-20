@@ -678,8 +678,17 @@ def load_csv_data() -> List[Dict]:
             indent = len(line) - len(line.lstrip())
             indent_str = ' ' * indent
 
-            # Track if we're inside a 'with' block
-            if 'with page.expect_popup(' in stripped or 'with page.expect_navigation(' in stripped:
+            # Track if we're inside a 'with' block (page, page1, page2, page3)
+            if any(pattern in stripped for pattern in [
+                'with page.expect_popup(',
+                'with page.expect_navigation(',
+                'with page1.expect_popup(',
+                'with page1.expect_navigation(',
+                'with page2.expect_popup(',
+                'with page2.expect_navigation(',
+                'with page3.expect_popup(',
+                'with page3.expect_navigation(',
+            ]):
                 inside_with_block = True
                 with_block_indent = indent
             elif inside_with_block and indent <= with_block_indent:
@@ -707,6 +716,17 @@ def load_csv_data() -> List[Dict]:
             # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
             if inside_with_block and indent > with_block_indent:
                 is_critical = True
+
+            # Fix indentation if code inside 'with' block has no indent (common copy-paste issue)
+            if inside_with_block and indent <= with_block_indent and stripped and not stripped.startswith('with'):
+                # We're inside a with block but line has same/less indent - FIX IT
+                # This happens when code is copy-pasted and loses indentation
+                print(f"[GENERATOR] [WARNING] Fixed indentation inside 'with' block for: {stripped[:50]}")
+                # Add 4 spaces indent
+                sanitized_line = ' ' * (with_block_indent + 4) + stripped
+                indent = with_block_indent + 4  # Update indent for further processing
+                indent_str = ' ' * indent
+                is_critical = True  # Code inside with is critical
 
             # Check if this is a resilient action (click, fill, etc.)
             is_action = any(pattern in stripped for pattern in [
