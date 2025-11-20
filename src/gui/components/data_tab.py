@@ -234,8 +234,8 @@ class DataTab(ctk.CTkFrame):
         )
         self.variables_label.grid(row=2, column=0, sticky="w", padx=20, pady=(4, 16))
 
-        # Скрыть info_frame по умолчанию
-        self.info_frame.grid_remove()
+        # Показывать info_frame всегда (не скрывать по умолчанию)
+        # self.info_frame.grid_remove()  # УДАЛЕНО - теперь всегда виден
 
         # === TABLE CONTAINER ===
         table_container = ctk.CTkFrame(
@@ -292,7 +292,6 @@ class DataTab(ctk.CTkFrame):
 
         # Обновить информацию о полях (Шаг 2)
         if headers:
-            self.info_frame.grid()  # Показать info_frame
             self.fields_count_label.configure(text=f"📋 Количество полей: {len(headers)}")
 
             # Форматировать список переменных (обрезать если слишком длинный)
@@ -302,7 +301,9 @@ class DataTab(ctk.CTkFrame):
 
             self.variables_label.configure(text=f"🏷️ Переменные: {variables_str}")
         else:
-            self.info_frame.grid_remove()  # Скрыть если нет данных
+            # Если данных нет, показать placeholder
+            self.fields_count_label.configure(text="📋 Количество полей: 0")
+            self.variables_label.configure(text="🏷️ Переменные: (импортируйте Playwright код для автоматического извлечения полей)")
 
         # Создать заголовки
         self.create_header_row()
