@@ -730,6 +730,26 @@ def load_csv_data() -> List[Dict]:
                 sanitized_line = line.replace("'", "'").replace("'", "'")
                 wrapped_lines.append(sanitized_line)
 
+                # If this is a popup page assignment, add scroll verification code
+                # This helps verify page control and loads elements at the bottom
+                if '= page1_info.value' in sanitized_line or '= page2_info.value' in sanitized_line or '= page3_info.value' in sanitized_line:
+                    # Extract page variable name (page1, page2, etc.)
+                    import re
+                    match = re.search(r'(\w+)\s*=\s*page\d+_info\.value', sanitized_line)
+                    if match:
+                        page_var = match.group(1)
+                        wrapped_lines.append(f"{indent_str}# Wait for popup page to load and scroll for verification")
+                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+                        wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
+                        wrapped_lines.append(f"{indent_str}# Scroll down to load bottom elements (like 'See more')")
+                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
+                        wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
+                        wrapped_lines.append(f"{indent_str}# Scroll back up for visibility")
+                        wrapped_lines.append(f"{indent_str}{page_var}.evaluate('window.scrollTo(0, 0)')")
+                        wrapped_lines.append(f"{indent_str}time.sleep(0.3)")
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded and scrolled for verification")')
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] Страница {page_var} готова к взаимодействию")')
+
             i += 1
 
         return '\n'.join(wrapped_lines)
