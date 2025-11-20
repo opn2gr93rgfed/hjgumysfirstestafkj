@@ -767,7 +767,7 @@ def load_csv_data() -> List[Dict]:
 
                 # Check for special command comments (e.g., #pause10, #scrolldown)
                 if stripped.startswith('#'):
-                    command_handled = self._handle_special_command(stripped, indent_str, wrapped_lines)
+                    command_handled = self._handle_special_command(stripped, indent_str, wrapped_lines, current_page_context)
                     if command_handled:
                         i += 1
                         continue
@@ -782,6 +782,8 @@ def load_csv_data() -> List[Dict]:
                     match = re.search(r'(\w+)\s*=\s*page\d+_info\.value', sanitized_line)
                     if match:
                         page_var = match.group(1)
+                        # Update current page context for special commands
+                        current_page_context = page_var
                         wrapped_lines.append(f"{indent_str}# Wait for popup page to load and scroll for verification")
                         wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
                         wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
@@ -813,7 +815,7 @@ def load_csv_data() -> List[Dict]:
 
         return '\n'.join(wrapped_lines)
 
-    def _handle_special_command(self, comment: str, indent_str: str, wrapped_lines: list) -> bool:
+    def _handle_special_command(self, comment: str, indent_str: str, wrapped_lines: list, page_context: str = 'page') -> bool:
         """
         Обработать специальные команды в комментариях
 
@@ -824,6 +826,9 @@ def load_csv_data() -> List[Dict]:
         - #scrollmid - скролл к середине страницы
         - #toggle_switches - переключить switches (снять первый checked, поставить первый unchecked)
         - #optional - следующее действие опционально (обернуть в try-except, даже если это page2)
+
+        Args:
+            page_context: Текущий контекст страницы (page, page1, page2, page3)
 
         Returns:
             True если команда обработана, False если это обычный комментарий
@@ -845,13 +850,10 @@ def load_csv_data() -> List[Dict]:
         # #toggle_switches - переключить switches (первый checked -> uncheck, первый unchecked -> check)
         if comment_lower == '#toggle_switches':
             wrapped_lines.append(f"{indent_str}# User command: toggle switches")
-            wrapped_lines.append(f"{indent_str}print(f'[SWITCHES] Toggling switches...')")
+            wrapped_lines.append(f"{indent_str}print(f'[SWITCHES] Toggling switches on {page_context}...')")
             wrapped_lines.append(f"{indent_str}try:")
-            wrapped_lines.append(f"{indent_str}    # Detect which page context we're in")
-            wrapped_lines.append(f"{indent_str}    current_page = page1 if 'page1' in locals() else (page2 if 'page2' in locals() else page)")
-            wrapped_lines.append(f"{indent_str}    ")
             wrapped_lines.append(f"{indent_str}    # Find all switches on the page")
-            wrapped_lines.append(f"{indent_str}    switches = current_page.get_by_role('switch').all()")
+            wrapped_lines.append(f"{indent_str}    switches = {page_context}.get_by_role('switch').all()")
             wrapped_lines.append(f'{indent_str}    print(f"[SWITCHES] Found {{len(switches)}} switches")')
             wrapped_lines.append(f"{indent_str}    ")
             wrapped_lines.append(f"{indent_str}    # Find first checked switch and uncheck it")
@@ -884,50 +886,24 @@ def load_csv_data() -> List[Dict]:
         # #scrolldown or #scroll - скролл вниз
         if comment_lower in ['#scrolldown', '#scroll']:
             wrapped_lines.append(f"{indent_str}# User command: scroll down")
-            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling down...')")
-            # Try to detect which page context we're in
-            wrapped_lines.append(f"{indent_str}try:")
-            wrapped_lines.append(f"{indent_str}    # Try page1 first (most common in popup flows)")
-            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
-            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
-            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-            wrapped_lines.append(f"{indent_str}    else:")
-            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
-            wrapped_lines.append(f"{indent_str}except:")
-            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling down on {page_context}...')")
+            wrapped_lines.append(f"{indent_str}{page_context}.evaluate('window.scrollTo(0, document.body.scrollHeight)')")
             wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
             return True
 
         # #scrollup - скролл вверх
         if comment_lower == '#scrollup':
             wrapped_lines.append(f"{indent_str}# User command: scroll up")
-            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling up...')")
-            wrapped_lines.append(f"{indent_str}try:")
-            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
-            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, 0)')")
-            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
-            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, 0)')")
-            wrapped_lines.append(f"{indent_str}    else:")
-            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, 0)')")
-            wrapped_lines.append(f"{indent_str}except:")
-            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling up on {page_context}...')")
+            wrapped_lines.append(f"{indent_str}{page_context}.evaluate('window.scrollTo(0, 0)')")
             wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
             return True
 
         # #scrollmid - скролл к середине
         if comment_lower == '#scrollmid':
             wrapped_lines.append(f"{indent_str}# User command: scroll to middle")
-            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling to middle...')")
-            wrapped_lines.append(f"{indent_str}try:")
-            wrapped_lines.append(f"{indent_str}    if 'page1' in locals():")
-            wrapped_lines.append(f"{indent_str}        page1.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
-            wrapped_lines.append(f"{indent_str}    elif 'page2' in locals():")
-            wrapped_lines.append(f"{indent_str}        page2.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
-            wrapped_lines.append(f"{indent_str}    else:")
-            wrapped_lines.append(f"{indent_str}        page.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
-            wrapped_lines.append(f"{indent_str}except:")
-            wrapped_lines.append(f"{indent_str}    pass")
+            wrapped_lines.append(f"{indent_str}print(f'[SCROLL] Scrolling to middle on {page_context}...')")
+            wrapped_lines.append(f"{indent_str}{page_context}.evaluate('window.scrollTo(0, document.body.scrollHeight / 2)')")
             wrapped_lines.append(f"{indent_str}time.sleep(0.5)")
             return True
 
