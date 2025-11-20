@@ -655,12 +655,20 @@ def load_csv_data() -> List[Dict]:
         i = 0
         inside_with_block = False
         with_block_indent = 0
+        next_action_optional = False  # Track #optional marker
 
         while i < len(lines):
             line = lines[i]
             stripped = line.strip()
 
-            # Skip empty lines and comments
+            # Check for #optional marker
+            if stripped.lower() == '#optional':
+                next_action_optional = True
+                wrapped_lines.append(f"{' ' * (len(line) - len(line.lstrip()))}# Next action is optional (will not fail script if element not found)")
+                i += 1
+                continue
+
+            # Skip empty lines and regular comments
             if not stripped or stripped.startswith('#'):
                 wrapped_lines.append(line)
                 i += 1
@@ -690,6 +698,11 @@ def load_csv_data() -> List[Dict]:
                 'page2.',
                 'page3.',
             ])
+
+            # If #optional marker was set, force this action to be non-critical
+            if next_action_optional:
+                is_critical = False
+                next_action_optional = False  # Reset marker
 
             # Actions inside 'with' blocks are critical (must succeed to open popup/navigate)
             if inside_with_block and indent > with_block_indent:
@@ -786,6 +799,8 @@ def load_csv_data() -> List[Dict]:
         - #scrolldown, #scroll - скролл вниз до конца страницы
         - #scrollup - скролл вверх к началу страницы
         - #scrollmid - скролл к середине страницы
+        - #toggle_switches - переключить switches (снять первый checked, поставить первый unchecked)
+        - #optional - следующее действие опционально (обернуть в try-except, даже если это page2)
 
         Returns:
             True если команда обработана, False если это обычный комментарий
@@ -803,6 +818,45 @@ def load_csv_data() -> List[Dict]:
             wrapped_lines.append(f"{indent_str}time.sleep({seconds})")
             wrapped_lines.append(f"{indent_str}print(f'[PAUSE] Resume')")
             return True
+
+        # #toggle_switches - переключить switches (первый checked -> uncheck, первый unchecked -> check)
+        if comment_lower == '#toggle_switches':
+            wrapped_lines.append(f"{indent_str}# User command: toggle switches")
+            wrapped_lines.append(f"{indent_str}print(f'[SWITCHES] Toggling switches...')")
+            wrapped_lines.append(f"{indent_str}try:")
+            wrapped_lines.append(f"{indent_str}    # Detect which page context we're in")
+            wrapped_lines.append(f"{indent_str}    current_page = page1 if 'page1' in locals() else (page2 if 'page2' in locals() else page)")
+            wrapped_lines.append(f"{indent_str}    ")
+            wrapped_lines.append(f"{indent_str}    # Find all switches on the page")
+            wrapped_lines.append(f"{indent_str}    switches = current_page.get_by_role('switch').all()")
+            wrapped_lines.append(f'{indent_str}    print(f"[SWITCHES] Found {{len(switches)}} switches")')
+            wrapped_lines.append(f"{indent_str}    ")
+            wrapped_lines.append(f"{indent_str}    # Find first checked switch and uncheck it")
+            wrapped_lines.append(f"{indent_str}    for i, switch in enumerate(switches):")
+            wrapped_lines.append(f"{indent_str}        if switch.is_checked():")
+            wrapped_lines.append(f'{indent_str}            print(f"[SWITCHES] Unchecking switch {{i+1}} (was checked)")')
+            wrapped_lines.append(f"{indent_str}            switch.uncheck()")
+            wrapped_lines.append(f"{indent_str}            time.sleep(0.3)")
+            wrapped_lines.append(f"{indent_str}            break")
+            wrapped_lines.append(f"{indent_str}    ")
+            wrapped_lines.append(f"{indent_str}    # Find first unchecked switch and check it")
+            wrapped_lines.append(f"{indent_str}    for i, switch in enumerate(switches):")
+            wrapped_lines.append(f"{indent_str}        if not switch.is_checked():")
+            wrapped_lines.append(f'{indent_str}            print(f"[SWITCHES] Checking switch {{i+1}} (was unchecked)")')
+            wrapped_lines.append(f"{indent_str}            switch.check()")
+            wrapped_lines.append(f"{indent_str}            time.sleep(0.3)")
+            wrapped_lines.append(f"{indent_str}            break")
+            wrapped_lines.append(f"{indent_str}    ")
+            wrapped_lines.append(f'{indent_str}    print(f"[SWITCHES] Switches toggled successfully")')
+            wrapped_lines.append(f"{indent_str}except Exception as e:")
+            wrapped_lines.append(f'{indent_str}    print(f"[SWITCHES] [ERROR] Failed to toggle switches: {{e}}")')
+            return True
+
+        # #optional - следующее действие опционально (будет обработано в основном коде)
+        if comment_lower == '#optional':
+            # This is a marker - will be handled in the main wrapping logic
+            # Just preserve the comment for now
+            return False
 
         # #scrolldown or #scroll - скролл вниз
         if comment_lower in ['#scrolldown', '#scroll']:
