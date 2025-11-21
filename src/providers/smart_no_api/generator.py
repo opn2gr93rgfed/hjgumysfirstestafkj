@@ -766,8 +766,8 @@ def load_csv_data() -> List[Dict]:
                 wrapped_lines.append(f"{indent_str}try:")
                 wrapped_lines.append(f"{indent_str}    {sanitized_code}")
                 wrapped_lines.append(f"{indent_str}except PlaywrightTimeout:")
-                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [WARNING] Timeout: {action_desc}")')
-                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...")')
+                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [WARNING] Timeout: {action_desc}", flush=True)')
+                wrapped_lines.append(f'{indent_str}    print(f"[ACTION] [INFO] Элемент не найден - возможно другой вариант флоу, продолжаем...", flush=True)')
                 wrapped_lines.append(f"{indent_str}    pass  # Continue execution")
             elif is_popup_action and is_critical:
                 # Popup page actions need retry logic with extended timeout
@@ -791,7 +791,7 @@ def load_csv_data() -> List[Dict]:
                 wrapped_lines.append(f"{indent_str}    try:")
                 wrapped_lines.append(f"{indent_str}        if retry_attempt > 0:")
                 wrapped_lines.append(f'{indent_str}            delay = progressive_delays[retry_attempt - 1]')
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Attempt {{retry_attempt+1}}/{{max_retries}} (waiting {{delay}}s): {action_desc}")')
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Attempt {{retry_attempt+1}}/{{max_retries}} (waiting {{delay}}s): {action_desc}", flush=True)')
                 wrapped_lines.append(f"{indent_str}            time.sleep(delay)")
                 wrapped_lines.append(f"{indent_str}            # Wait for page to stabilize")
                 wrapped_lines.append(f"{indent_str}            {page_var}.wait_for_load_state('domcontentloaded', timeout=5000)")
@@ -806,20 +806,20 @@ def load_csv_data() -> List[Dict]:
                     wrapped_lines.append(f"{indent_str}            element = {element_part}")
                     wrapped_lines.append(f"{indent_str}            element.scroll_into_view_if_needed(timeout=3000)")
                     wrapped_lines.append(f"{indent_str}            time.sleep(0.2)  # Wait for scroll animation")
-                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] Element scrolled into view")')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] Element scrolled into view", flush=True)')
                     wrapped_lines.append(f"{indent_str}        except:")
-                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [WARNING] Could not scroll element into view, attempting anyway...")')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [WARNING] Could not scroll element into view, attempting anyway...", flush=True)')
                     wrapped_lines.append(f"{indent_str}            pass")
                     # Replace original code with element.click() since we already have element
                     wrapped_lines.append(f"{indent_str}        element.click()")
                 else:
                     wrapped_lines.append(f"{indent_str}        {sanitized_code}")
 
-                wrapped_lines.append(f'{indent_str}        print(f"[POPUP_ACTION] [OK] {action_desc}")')
+                wrapped_lines.append(f'{indent_str}        print(f"[POPUP_ACTION] [OK] {action_desc}", flush=True)')
                 wrapped_lines.append(f"{indent_str}        break  # Success - exit retry loop")
                 wrapped_lines.append(f"{indent_str}    except PlaywrightTimeout:")
                 wrapped_lines.append(f"{indent_str}        if retry_attempt == max_retries - 1:")
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [ERROR] Failed after {{max_retries}} attempts (total {{sum(progressive_delays)}}s): {action_desc}")')
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [ERROR] Failed after {{max_retries}} attempts (total {{sum(progressive_delays)}}s): {action_desc}", flush=True)')
                 # Determine at generation time if this is an optional expandable button
                 optional_keywords = ['show more', 'see more', 'load more', 'view more', 'expand', 'показать больше']
                 action_lower = action_desc.lower()
@@ -828,20 +828,20 @@ def load_csv_data() -> List[Dict]:
                 if is_optional_button:
                     # Generate code that treats this as optional
                     wrapped_lines.append(f"{indent_str}            # Smart detection: This appears to be an optional expandable button")
-                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Button may not exist if content already loaded")')
-                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Checking page state...")')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Button may not exist if content already loaded", flush=True)')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [INFO] Checking page state...", flush=True)')
                     wrapped_lines.append(f"{indent_str}            try:")
                     wrapped_lines.append(f"{indent_str}                {page_var}.wait_for_load_state('domcontentloaded', timeout=3000)")
-                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [OK] Page stable - content likely already loaded, continuing...")')
+                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [OK] Page stable - content likely already loaded, continuing...", flush=True)')
                     wrapped_lines.append(f"{indent_str}            except:")
-                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [WARNING] Page check failed but treating as optional")')
+                    wrapped_lines.append(f'{indent_str}                print(f"[POPUP_ACTION] [WARNING] Page check failed but treating as optional", flush=True)')
                     wrapped_lines.append(f"{indent_str}            break  # Continue execution without raising error")
                 else:
                     # Generate code that treats this as critical
                     wrapped_lines.append(f"{indent_str}            raise  # Re-raise on final attempt for critical buttons")
 
                 wrapped_lines.append(f"{indent_str}        else:")
-                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Timeout on attempt {{retry_attempt+1}}, retrying with longer delay...")')
+                wrapped_lines.append(f'{indent_str}            print(f"[POPUP_RETRY] Timeout on attempt {{retry_attempt+1}}, retrying with longer delay...", flush=True)')
                 wrapped_lines.append(f"{indent_str}            continue")
             else:
                 # Keep as-is (critical actions or non-actions)
@@ -872,11 +872,11 @@ def load_csv_data() -> List[Dict]:
                         wrapped_lines.append(f"{indent_str}{page_var}.wait_for_load_state('domcontentloaded')")
                         wrapped_lines.append(f"{indent_str}try:")
                         wrapped_lines.append(f"{indent_str}    {page_var}.wait_for_load_state('networkidle', timeout=10000)")
-                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network stabilized on {page_var}")')
+                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network stabilized on {page_var}", flush=True)')
                         wrapped_lines.append(f"{indent_str}except:")
-                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network idle timeout - continuing anyway")')
+                        wrapped_lines.append(f'{indent_str}    print(f"[POPUP] Network idle timeout - continuing anyway", flush=True)')
                         wrapped_lines.append(f"{indent_str}    pass")
-                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded - use #scrolldown/#scrollmid for manual scroll control")')
+                        wrapped_lines.append(f'{indent_str}print(f"[POPUP] [OK] {page_var} page loaded - use #scrolldown/#scrollmid for manual scroll control", flush=True)')
 
             i += 1
 
