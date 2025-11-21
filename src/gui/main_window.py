@@ -41,13 +41,17 @@ class OctobrowserScriptBuilder:
 
         # Инициализация компонентов
         self.api = None
-        self.generator = ScriptGenerator()  # Selenium генератор
-        self.playwright_generator = PlaywrightScriptGenerator()  # Playwright генератор
+        self.generator = ScriptGenerator()
+        self.playwright_generator = PlaywrightScriptGenerator()
         self.runner = ScriptRunner()
         self.runner.set_output_callback(self.append_output)
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
-        self.playwright_parser = PlaywrightParser()
+        # PlaywrightParser с поддержкой OTP (передаем otp_enabled из конфига)
+        otp_enabled = self.config.get('otp', {}).get('enabled', False)
+        self.playwright_parser = PlaywrightParser(otp_enabled=otp_enabled)
+        if not otp_enabled:
+            print("[OTP] OTP handler disabled by config")
 
         # SMS провайдеры
         self.sms_provider_manager = ProviderManager()
@@ -1996,12 +2000,17 @@ driver.find_element(By.XPATH,get_xpath(driver,'Mcl9ZktzIHeZ8kH')).send_keys('101
         quick_entry.bind('<Control-v>', on_paste)
         quick_entry.bind('<Command-v>', on_paste)  # Для Mac
 
-        # === ИНФОРМАЦИЯ (компактная) ===
-        info_frame = ttk.Frame(editor_window)
+        # === ИНФОРМАЦИЯ ОБ ИЗВЛЕЧЕННЫХ ДАННЫХ (Шаг 2) ===
+        info_frame = ttk.LabelFrame(editor_window, text="📊 Извлеченные поля и переменные", padding=10)
         info_frame.pack(fill=tk.X, padx=10, pady=5)
 
-        info_text = f"📋 Извлечено полей: {len(self.imported_data['csv_headers'])} | Переменные: {', '.join(self.imported_data['csv_headers'])}"
-        ttk.Label(info_frame, text=info_text, foreground="gray").pack(anchor=tk.W)
+        fields_count = len(self.imported_data['csv_headers'])
+        variables_list = ', '.join(self.imported_data['csv_headers'])
+
+        ttk.Label(info_frame, text=f"📋 Количество полей: {fields_count}",
+                 font=("TkDefaultFont", 9, "bold")).pack(anchor=tk.W, pady=(0, 5))
+        ttk.Label(info_frame, text=f"🏷️ Переменные: {variables_list}",
+                 foreground="blue").pack(anchor=tk.W)
 
         # Таблица данных
         table_frame = ttk.LabelFrame(editor_window, text="📋 Данные для CSV", padding=10)

@@ -18,6 +18,7 @@ from tkinter import filedialog
 import json
 import os
 import threading
+import importlib
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, Literal
@@ -27,9 +28,6 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.api.octobrowser_api import OctobrowserAPI
-from src.generator.script_generator import ScriptGenerator
-from src.generator.playwright_script_generator import PlaywrightScriptGenerator
-from src.runner.script_runner import ScriptRunner
 from src.utils.script_parser import ScriptParser
 from src.utils.selenium_ide_parser import SeleniumIDEParser
 from src.utils.playwright_parser import PlaywrightParser
@@ -40,6 +38,21 @@ from src.data.dynamic_field import DynamicFieldManager
 # Modern UI Components
 from .themes import ModernTheme, ButtonStyles
 from .components import ToastManager, DataTab, ProxyTab, OctoAPITab
+
+
+def discover_providers():
+    """Автоопределение провайдеров из папки src/providers/"""
+    providers_dir = Path(__file__).parent.parent / 'providers'
+    if not providers_dir.exists():
+        return ['default_no_otp']
+
+    providers = []
+    for item in providers_dir.iterdir():
+        if item.is_dir() and not item.name.startswith('_'):
+            if (item / 'generator.py').exists() and (item / 'runner.py').exists():
+                providers.append(item.name)
+
+    return sorted(providers) if providers else ['default_no_otp']
 
 
 class ModernAppV3(ctk.CTk):
@@ -68,13 +81,14 @@ class ModernAppV3(ctk.CTk):
 
         # === КОМПОНЕНТЫ ===
         self.api: Optional[OctobrowserAPI] = None
-        self.generator = ScriptGenerator()
-        self.playwright_generator = PlaywrightScriptGenerator()
-        self.runner = ScriptRunner()
-        self.runner.set_output_callback(self.append_log)
+        self.available_providers = discover_providers()
+        self.current_provider = self.available_providers[0]
         self.parser = ScriptParser()
         self.side_parser = SeleniumIDEParser()
-        self.playwright_parser = PlaywrightParser()
+        otp_enabled = self.config.get('otp', {}).get('enabled', False)
+        self.playwright_parser = PlaywrightParser(otp_enabled=otp_enabled)
+        if not otp_enabled:
+            print("[OTP] OTP handler disabled by config")
         self.data_parser = SmartDataParser()
         self.sms_provider_manager = ProviderManager()
         self.dynamic_field_manager = DynamicFieldManager()
@@ -96,6 +110,9 @@ class ModernAppV3(ctk.CTk):
         # Иначе CTkTabview и другие виджеты закрывают toast
         self.toast.container.lift()
         print("[MAIN WINDOW] Toast контейнер поднят после create_ui()")
+
+        # === ЗАГРУЗКА НАСТРОЕК ТАЙМАУТОВ ===
+        self.load_timeout_settings()
 
         # === ГОРЯЧИЕ КЛАВИШИ ===
         self.setup_hotkeys()
@@ -294,165 +311,429 @@ class ModernAppV3(ctk.CTk):
         self.tabview.grid(row=0, column=0, sticky="nsew", padx=24, pady=24)
 
         # Добавить вкладки
-        self.tab_import = self.tabview.add("📥 Import Code")
-        self.tab_edit = self.tabview.add("✏️ Preview & Edit")
+        self.tab_edit = self.tabview.add("🚀 Автоматизация")
         self.tab_data = self.tabview.add("📊 Data")
         self.tab_proxies = self.tabview.add("🌐 Proxies")
         self.tab_octo = self.tabview.add("🐙 Octo API")
         self.tab_logs = self.tabview.add("📋 Logs")
 
         # Настроить вкладки
-        self.setup_import_tab()
         self.setup_edit_tab()
         self.setup_data_tab()
         self.setup_proxies_tab()
         self.setup_octo_tab()
         self.setup_logs_tab()
 
-    def setup_import_tab(self):
-        """Настроить вкладку Import"""
-        tab = self.tab_import
-        tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(1, weight=1)
-
-        # Кнопки импорта
-        btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
-        btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)
-
-        ctk.CTkButton(
-            btn_frame,
-            text="📂 Open Python File",
-            command=self.import_from_file,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_primary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=8, sticky="ew")
-
-        ctk.CTkButton(
-            btn_frame,
-            text="📋 Paste from Clipboard",
-            command=self.import_from_clipboard,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_secondary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=1, padx=8, sticky="ew")
-
-        ctk.CTkButton(
-            btn_frame,
-            text="✨ Parse Data → CSV",
-            command=self.parse_and_generate_csv,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_success'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=2, padx=8, sticky="ew")
-
-        # Код превью
-        preview_container = ctk.CTkFrame(
-            tab,
-            corner_radius=16,
-            fg_color=self.theme['bg_tertiary'],
-            border_width=1,
-            border_color=self.theme['border_primary']
-        )
-        preview_container.grid(row=1, column=0, sticky="nsew", padx=24, pady=(0, 24))
-        preview_container.grid_columnconfigure(0, weight=1)
-        preview_container.grid_rowconfigure(0, weight=1)
-
-        self.import_preview = ctk.CTkTextbox(
-            preview_container,
-            font=('Consolas', 12),
-            fg_color=self.theme['bg_tertiary'],
-            text_color=self.theme['text_primary'],
-            wrap="none",
-            border_width=0
-        )
-        self.import_preview.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
-
-        # Placeholder
-        self.import_preview.insert("1.0", "# 📂 Import your Playwright code here...\n# Use buttons above to load code from file or clipboard")
-        self.import_preview.configure(state="disabled")
-
     def setup_edit_tab(self):
-        """Настроить вкладку Preview & Edit"""
+        """Настроить главную вкладку Автоматизация"""
         tab = self.tab_edit
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(1, weight=1)
+        tab.grid_rowconfigure(4, weight=1)  # Увеличили на 1 из-за добавления шагов
 
-        # Control buttons
-        btn_frame = ctk.CTkFrame(tab, fg_color="transparent", height=80)
-        btn_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=24)
-        btn_frame.grid_propagate(False)
-        btn_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)  # 🔥 6 кнопок
+        # ========== ШАГ 1: ВЫБОР ПРОВАЙДЕРА ==========
+        step1_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['accent_primary'],
+            height=80
+        )
+        step1_frame.grid(row=0, column=0, sticky="ew", padx=24, pady=(24, 8))
+        step1_frame.grid_propagate(False)
+        step1_frame.grid_columnconfigure(1, weight=1)
 
-        # 🔥 НОВАЯ КНОПКА: Generate Script
+        step1_label = ctk.CTkLabel(
+            step1_frame,
+            text="ШАГ 1:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['accent_primary']
+        )
+        step1_label.grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        ctk.CTkLabel(
+            step1_frame,
+            text="Выберите провайдер генерации",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
+
+        self.provider_selector = ctk.CTkComboBox(
+            step1_frame,
+            values=self.available_providers,
+            width=300,
+            height=40,
+            font=(ModernTheme.FONT['family'], 12, 'bold'),
+            state="readonly",
+            command=self.on_provider_changed,
+            fg_color=self.theme['accent_primary'],
+            button_color=self.theme['accent_secondary']
+        )
+        self.provider_selector.set(self.current_provider)
+        self.provider_selector.grid(row=0, column=2, padx=20, pady=15, sticky="e")
+
+        # ========== ШАГ 2: ВСТАВИТЬ КОД ==========
+        step2_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary'],
+            height=80
+        )
+        step2_frame.grid(row=1, column=0, sticky="ew", padx=24, pady=8)
+        step2_frame.grid_propagate(False)
+        step2_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            step2_frame,
+            text="ШАГ 2:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        ctk.CTkLabel(
+            step2_frame,
+            text="Вставьте код автоматизации ниже",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
+
+        # Кнопки для ШАГ 2
+        step2_buttons_frame = ctk.CTkFrame(step2_frame, fg_color="transparent")
+        step2_buttons_frame.grid(row=0, column=2, padx=20, pady=15, sticky="e")
+
+        ctk.CTkButton(
+            step2_buttons_frame,
+            text="📂 Загрузить файл",
+            command=self.import_from_file,
+            height=40,
+            width=150,
+            corner_radius=10,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).pack(side="left", padx=(0, 6))
+
+        ctk.CTkButton(
+            step2_buttons_frame,
+            text="✨ Автопарсинг → CSV",
+            command=self.auto_parse_data_from_editor,
+            height=40,
+            width=170,
+            corner_radius=10,
+            fg_color=self.theme['accent_success'],
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).pack(side="left", padx=(6, 0))
+
+        # ========== ШАГ 3: ЗАГРУЗИТЬ CSV ==========
+        step3_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary'],
+            height=80
+        )
+        step3_frame.grid(row=2, column=0, sticky="ew", padx=24, pady=8)
+        step3_frame.grid_propagate(False)
+        step3_frame.grid_columnconfigure(1, weight=1)
+
+        ctk.CTkLabel(
+            step3_frame,
+            text="ШАГ 3:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=0, padx=(20, 10), pady=15, sticky="w")
+
+        ctk.CTkLabel(
+            step3_frame,
+            text="Загрузите CSV с данными для автоматизации",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=1, padx=(0, 10), pady=15, sticky="w")
+
+        self.csv_status_label = ctk.CTkLabel(
+            step3_frame,
+            text="Не загружен",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['accent_error']
+        )
+        self.csv_status_label.grid(row=0, column=2, padx=(10, 10), pady=15, sticky="e")
+
+        ctk.CTkButton(
+            step3_frame,
+            text="📊 Загрузить CSV",
+            command=self.load_csv,
+            height=40,
+            width=200,
+            corner_radius=10,
+            fg_color=self.theme['accent_warning'],
+            font=(ModernTheme.FONT['family'], 11, 'bold')
+        ).grid(row=0, column=3, padx=20, pady=15, sticky="e")
+
+        # ========== ШАГ 4: НАСТРОЙКИ И ГЕНЕРАЦИЯ ==========
+        step4_frame = ctk.CTkFrame(
+            tab,
+            fg_color=self.theme['bg_tertiary'],
+            corner_radius=12,
+            border_width=2,
+            border_color=self.theme['text_secondary']
+        )
+        step4_frame.grid(row=3, column=0, sticky="ew", padx=24, pady=8)
+        step4_frame.grid_columnconfigure(0, weight=1)
+
+        # Заголовок шага 4
+        step4_header = ctk.CTkFrame(step4_frame, fg_color="transparent")
+        step4_header.grid(row=0, column=0, sticky="ew", padx=20, pady=(15, 10))
+
+        ctk.CTkLabel(
+            step4_header,
+            text="ШАГ 4:",
+            font=(ModernTheme.FONT['family'], 14, 'bold'),
+            text_color=self.theme['text_secondary']
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkLabel(
+            step4_header,
+            text="Настройки генерации (опционально)",
+            font=(ModernTheme.FONT['family'], 13),
+            text_color=self.theme['text_primary']
+        ).pack(side="left")
+
+        # Шаблоны таймаутов
+        templates_frame = ctk.CTkFrame(step4_frame, fg_color="transparent")
+        templates_frame.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 10))
+
+        ctk.CTkLabel(
+            templates_frame,
+            text="⚡ Шаблоны:",
+            font=(ModernTheme.FONT['family'], 11, 'bold'),
+            text_color=self.theme['text_primary']
+        ).pack(side="left", padx=(0, 10))
+
+        ctk.CTkButton(
+            templates_frame,
+            text="🚀 Очень быстро",
+            command=lambda: self.apply_timeout_template("very_fast"),
+            width=120,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_success'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="⚡ Быстро",
+            command=lambda: self.apply_timeout_template("fast"),
+            width=100,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="⏱️ Нормально",
+            command=lambda: self.apply_timeout_template("normal"),
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_primary'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        ctk.CTkButton(
+            templates_frame,
+            text="🐌 Медленно",
+            command=lambda: self.apply_timeout_template("slow"),
+            width=110,
+            height=32,
+            corner_radius=8,
+            fg_color=self.theme['accent_warning'],
+            font=(ModernTheme.FONT['family'], 10)
+        ).pack(side="left", padx=3)
+
+        # Настройки таймаутов
+        timeouts_frame = ctk.CTkFrame(step4_frame, fg_color=self.theme['bg_secondary'], corner_radius=8)
+        timeouts_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(0, 15))
+        timeouts_frame.grid_columnconfigure((1, 3, 5), weight=1)
+
+        # Таймаут кликов
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Таймаут кликов:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=0, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.click_timeout_var = tk.StringVar(value="10")
+        click_timeout_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.click_timeout_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        click_timeout_entry.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 5-10 с умными селекторами)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=0, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # Таймаут навигации
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Таймаут навигации:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=1, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.navigation_timeout_var = tk.StringVar(value="15")
+        navigation_timeout_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.navigation_timeout_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        navigation_timeout_entry.grid(row=1, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 10-15 с check_heading)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=1, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # Задержка между действиями
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="Задержка между действиями:",
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary']
+        ).grid(row=2, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.action_delay_var = tk.StringVar(value="0.5")
+        action_delay_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.action_delay_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        action_delay_entry.grid(row=2, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="сек (рекомендуется 0.3-1.0 для стабильности)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=2, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # Симуляция ввода текста
+        self.simulate_typing_var = tk.BooleanVar(value=True)  # По умолчанию включено
+        simulate_typing_checkbox = ctk.CTkCheckBox(
+            timeouts_frame,
+            text="Симуляция ввода текста:",
+            variable=self.simulate_typing_var,
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary'],
+            fg_color=self.theme['accent_primary'],
+            hover_color=self.theme['accent_secondary']
+        )
+        simulate_typing_checkbox.grid(row=3, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.typing_delay_var = tk.StringVar(value="100")
+        typing_delay_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.typing_delay_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        typing_delay_entry.grid(row=3, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="мс между символами (50-200 для естественности)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=3, column=2, padx=(5, 15), pady=10, sticky="w")
+
+        # ========== КНОПКИ ДЕЙСТВИЙ (АДАПТИВНЫЙ LAYOUT 2x3) ==========
+        btn_frame = ctk.CTkFrame(tab, fg_color="transparent")
+        btn_frame.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 24))
+        # Убрали фиксированную высоту и grid_propagate(False) - теперь адаптируется
+        btn_frame.grid_columnconfigure((0, 1, 2), weight=1)  # 3 колонки
+
+        # РЯД 1: Импорт, Генерация, Запуск
         ctk.CTkButton(
             btn_frame,
-            text="⚙️ GENERATE",
+            text="📥 ИМПОРТ",
+            command=self.import_from_clipboard,
+            height=50,
+            corner_radius=16,
+            fg_color=self.theme['accent_info'],
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=0, column=0, padx=4, pady=4, sticky="ew")
+
+        ctk.CTkButton(
+            btn_frame,
+            text="✨ ГЕНЕРИРОВАТЬ",
             command=self.generate_playwright_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_primary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=0, padx=8, sticky="ew")
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=0, column=1, padx=4, pady=4, sticky="ew")
 
         self.run_btn = ctk.CTkButton(
             btn_frame,
-            text="▶️ RUN",
+            text="▶️ ЗАПУСТИТЬ",
             command=self.start_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_success'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
+            font=(ModernTheme.FONT['family'], 12, 'bold')
         )
-        self.run_btn.grid(row=0, column=1, padx=8, sticky="ew")
+        self.run_btn.grid(row=0, column=2, padx=4, pady=4, sticky="ew")
 
+        # РЯД 2: Остановить, Сохранить, Очистить
         self.stop_btn = ctk.CTkButton(
             btn_frame,
-            text="⏹️ STOP",
+            text="⏹️ ОСТАНОВИТЬ",
             command=self.stop_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_error'],
             state="disabled",
-            font=(ModernTheme.FONT['family'], 14, 'bold')
+            font=(ModernTheme.FONT['family'], 12, 'bold')
         )
-        self.stop_btn.grid(row=0, column=2, padx=8, sticky="ew")
+        self.stop_btn.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
+
+        # Дополнительная кнопка стоп (для совместимости)
+        self.stop_btn_main = self.stop_btn
 
         ctk.CTkButton(
             btn_frame,
-            text="💾 SAVE",
+            text="💾 СОХРАНИТЬ",
             command=self.save_script,
-            height=56,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_info'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=3, padx=8, sticky="ew")
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=1, column=1, padx=4, pady=4, sticky="ew")
 
         ctk.CTkButton(
             btn_frame,
-            text="🔄 RELOAD",
-            command=self.reload_script,
-            height=56,
+            text="🗑️ ОЧИСТИТЬ ЛОГ",
+            command=self.clear_logs,
+            height=50,
             corner_radius=16,
             fg_color=self.theme['accent_secondary'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=4, padx=8, sticky="ew")
-
-        # 🔥 НОВАЯ КНОПКА: Load CSV
-        ctk.CTkButton(
-            btn_frame,
-            text="📂 CSV",
-            command=self.load_csv,
-            height=56,
-            corner_radius=16,
-            fg_color=self.theme['accent_warning'],
-            font=(ModernTheme.FONT['family'], 14, 'bold')
-        ).grid(row=0, column=5, padx=8, sticky="ew")
+            font=(ModernTheme.FONT['family'], 12, 'bold')
+        ).grid(row=1, column=2, padx=4, pady=4, sticky="ew")
 
         # Code editor
         editor_container = ctk.CTkFrame(
@@ -657,12 +938,6 @@ class ModernAppV3(ctk.CTk):
 
             self.imported_data = result
 
-            # Показать в preview
-            self.import_preview.configure(state="normal")
-            self.import_preview.delete("1.0", "end")
-            self.import_preview.insert("1.0", result.get('converted_code', code))
-            self.import_preview.configure(state="disabled")
-
             # Показать в редакторе
             self.code_editor.delete("1.0", "end")
             self.code_editor.insert("1.0", result.get('converted_code', code))
@@ -705,13 +980,27 @@ class ModernAppV3(ctk.CTk):
         except Exception as e:
             self.append_log(f"[ERROR] Ошибка парсинга данных: {e}", "ERROR")
 
-    def parse_and_generate_csv(self):
-        """Ручной парсинг и генерация CSV"""
-        code = self.import_preview.get("1.0", "end-1c")
-        if not code or code.startswith("# 📂"):
-            self.toast.warning("Сначала импортируйте код")
+    def auto_parse_data_from_editor(self):
+        """
+        Автопарсинг данных из редактора кода в CSV
+
+        Вызывается кнопкой "✨ Автопарсинг → CSV" в ШАГ 2
+        """
+        code = self.code_editor.get("1.0", "end-1c")
+
+        if not code or not code.strip():
+            self.toast.warning("⚠️ Сначала вставьте код автоматизации!")
             return
 
+        # Проверить что это не пустой шаблон
+        if code.strip().startswith("# Пример") or len(code.strip()) < 50:
+            self.toast.warning("⚠️ Вставьте реальный код Playwright с действиями")
+            return
+
+        self.toast.info("🔍 Анализирую код...")
+        self.append_log("[AUTOPARSE] Запущен автопарсинг данных из кода", "INFO")
+
+        # Вызвать основную функцию парсинга
         self.auto_parse_data(code)
 
     # ========================================================================
@@ -743,7 +1032,10 @@ class ModernAppV3(ctk.CTk):
                 'use_sms': False,  # Пока отключено
                 'sms': self.config.get('sms', {}),
                 # 🔥 ДОБАВЛЯЕМ НАСТРОЙКИ ПРОФИЛЯ
-                'profile': profile_config
+                'profile': profile_config,
+                # 🔥 СИМУЛЯЦИЯ ВВОДА ТЕКСТА
+                'simulate_typing': self.simulate_typing_var.get(),
+                'typing_delay': int(self.typing_delay_var.get()) if self.typing_delay_var.get().isdigit() else 100
             }
 
             print(f"[DEBUG] API Token: {config['api_token'][:10]}..." if config['api_token'] else "[DEBUG] API Token: пуст")  # DEBUG
@@ -772,9 +1064,18 @@ class ModernAppV3(ctk.CTk):
 
             print(f"[DEBUG] Длина user_code: {len(user_code)} символов")  # DEBUG
 
-            # Генерация скрипта
-            self.append_log("[INFO] Генерация Playwright скрипта...", "INFO")
-            generated_script = self.playwright_generator.generate_script(user_code, config)
+            # Динамический импорт провайдера
+            selected_provider = self.provider_selector.get()
+            self.append_log(f"[INFO] Генерация Playwright скрипта (Provider: {selected_provider})...", "INFO")
+
+            try:
+                generator_module = importlib.import_module(f"src.providers.{selected_provider}.generator")
+                generator = generator_module.Generator()
+                generated_script = generator.generate_script(user_code, config)
+            except Exception as e:
+                self.append_log(f"[ERROR] Не удалось загрузить провайдер {selected_provider}: {e}", "ERROR")
+                self.toast.error(f"❌ Ошибка загрузки провайдера: {e}")
+                return
 
             # Вставить в редактор
             self.code_editor.delete("1.0", "end")
@@ -832,23 +1133,24 @@ class ModernAppV3(ctk.CTk):
             # UI обновление
             self.run_btn.configure(state="disabled")
             self.stop_btn.configure(state="normal")
+            if hasattr(self, 'stop_btn_main'):
+                self.stop_btn_main.configure(state="normal")
             self.status_label.configure(text="▶️ Running...")
             self.progress_bar.set(0.5)
 
-            # Запуск в потоке
-            def run_thread():
-                try:
-                    self.runner.run_script(str(script_path))
-                    self.after(0, lambda: self.toast.success("✅ Скрипт завершен"))
-                    self.after(0, lambda: self.append_log("[SUCCESS] Выполнение завершено", "SUCCESS"))
-                except Exception as e:
-                    self.after(0, lambda: self.toast.error(f"❌ Ошибка: {e}"))
-                    self.after(0, lambda: self.append_log(f"[ERROR] {e}", "ERROR"))
-                finally:
-                    self.after(0, self.script_finished)
-
-            thread = threading.Thread(target=run_thread, daemon=True)
-            thread.start()
+            # Динамический импорт runner из провайдера
+            selected_provider = self.provider_selector.get()
+            try:
+                runner_module = importlib.import_module(f"src.providers.{selected_provider}.runner")
+                runner = runner_module.Runner()
+                runner.set_output_callback(self.append_log)
+                runner.run(str(script_path))
+                self.current_runner = runner
+            except Exception as e:
+                self.toast.error(f"❌ Ошибка загрузки runner: {e}")
+                self.append_log(f"[ERROR] {e}", "ERROR")
+                self.script_finished()
+                return
 
             self.toast.info("▶️ Скрипт запущен")
 
@@ -859,17 +1161,26 @@ class ModernAppV3(ctk.CTk):
     def stop_script(self):
         """Остановка скрипта"""
         try:
-            self.runner.stop()
+            if hasattr(self, 'current_runner'):
+                self.current_runner.stop()
             self.toast.warning("⏹️ Скрипт остановлен")
             self.append_log("[WARNING] Скрипт остановлен пользователем", "WARNING")
             self.script_finished()
         except Exception as e:
             self.toast.error(f"Ошибка остановки: {e}")
 
+    def on_provider_changed(self, selected_provider):
+        """Обработчик смены провайдера"""
+        self.current_provider = selected_provider
+        self.append_log(f"[INFO] Провайдер изменен: {selected_provider}", "INFO")
+        print(f"[PROVIDER] Выбран провайдер: {selected_provider}")
+
     def script_finished(self):
         """Завершение скрипта"""
         self.run_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
+        if hasattr(self, 'stop_btn_main'):
+            self.stop_btn_main.configure(state="disabled")
         self.status_label.configure(text="⚡ Ready")
         self.progress_bar.set(0)
 
@@ -940,6 +1251,13 @@ class ModernAppV3(ctk.CTk):
             self.toast.success(f"📂 Загружено: {filename} ({len(rows)} строк)")
             self.append_log(f"[CSV] Загружен файл: {filename}, строк: {len(rows)}", "SUCCESS")
 
+            # Обновить статус в интерфейсе
+            if hasattr(self, 'csv_status_label'):
+                self.csv_status_label.configure(
+                    text=f"✅ {filename} ({len(rows)} строк)",
+                    text_color=self.theme['accent_success']
+                )
+
             # Показать первую строку для проверки
             if rows:
                 fields = list(rows[0].keys())
@@ -975,6 +1293,81 @@ class ModernAppV3(ctk.CTk):
     # ========================================================================
     # ДРУГОЕ
     # ========================================================================
+
+    def apply_timeout_template(self, template_name: str):
+        """
+        Применить шаблон таймаутов
+
+        Args:
+            template_name: Название шаблона (very_fast, fast, normal, slow)
+        """
+        templates = {
+            "very_fast": {
+                "click": 5,
+                "navigation": 8,
+                "delay": 0.3,
+                "name": "Очень быстро"
+            },
+            "fast": {
+                "click": 7,
+                "navigation": 12,
+                "delay": 0.5,
+                "name": "Быстро"
+            },
+            "normal": {
+                "click": 10,
+                "navigation": 15,
+                "delay": 0.8,
+                "name": "Нормально"
+            },
+            "slow": {
+                "click": 15,
+                "navigation": 25,
+                "delay": 1.5,
+                "name": "Медленно"
+            }
+        }
+
+        if template_name not in templates:
+            return
+
+        template = templates[template_name]
+
+        # Применить значения
+        self.click_timeout_var.set(str(template["click"]))
+        self.navigation_timeout_var.set(str(template["navigation"]))
+        self.action_delay_var.set(str(template["delay"]))
+
+        # Сохранить в конфиг
+        if 'timeouts' not in self.config:
+            self.config['timeouts'] = {}
+
+        self.config['timeouts'] = {
+            'click_timeout': template["click"],
+            'navigation_timeout': template["navigation"],
+            'action_delay': template["delay"],
+            'template': template_name
+        }
+
+        self.save_config()
+        self.toast.success(f"✅ Шаблон применен: {template['name']}")
+        self.append_log(f"[SETTINGS] Шаблон таймаутов: {template['name']}", "INFO")
+
+    def load_timeout_settings(self):
+        """Загрузить настройки таймаутов из конфигурации"""
+        timeouts = self.config.get('timeouts', {})
+
+        click_timeout = timeouts.get('click_timeout', 10)
+        navigation_timeout = timeouts.get('navigation_timeout', 15)
+        action_delay = timeouts.get('action_delay', 0.5)
+
+        self.click_timeout_var.set(str(click_timeout))
+        self.navigation_timeout_var.set(str(navigation_timeout))
+        self.action_delay_var.set(str(action_delay))
+
+        template = timeouts.get('template')
+        if template:
+            self.append_log(f"[SETTINGS] Загружены таймауты: {template}", "INFO")
 
     def toggle_theme(self, value):
         """Переключить тему"""

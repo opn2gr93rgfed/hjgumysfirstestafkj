@@ -154,7 +154,7 @@ class DataTab(ctk.CTkFrame):
         """Создать виджеты"""
         # Конфигурация layout
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)  # row 2 теперь таблица (было 1)
 
         # === HEADER ===
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -195,6 +195,48 @@ class DataTab(ctk.CTkFrame):
             )
             btn.grid(row=0, column=i, padx=4)
 
+        # === EXTRACTED FIELDS INFO (Шаг 2) ===
+        self.info_frame = ctk.CTkFrame(
+            self,
+            corner_radius=ModernTheme.RADIUS['lg'],
+            fg_color=self.theme['bg_secondary'],
+            border_width=1,
+            border_color=self.theme['border_primary']
+        )
+        self.info_frame.grid(row=1, column=0, sticky="ew", padx=32, pady=(0, 16))
+        self.info_frame.grid_columnconfigure(0, weight=1)
+
+        info_title = ctk.CTkLabel(
+            self.info_frame,
+            text="📊 Извлеченные поля и переменные",
+            font=(ModernTheme.FONT['family'], ModernTheme.FONT['size_lg'], 'bold'),
+            text_color=self.theme['text_primary'],
+            anchor="w"
+        )
+        info_title.grid(row=0, column=0, sticky="w", padx=20, pady=(16, 8))
+
+        self.fields_count_label = ctk.CTkLabel(
+            self.info_frame,
+            text="📋 Количество полей: 0",
+            font=(ModernTheme.FONT['family'], ModernTheme.FONT['size_sm'], 'bold'),
+            text_color=self.theme['text_secondary'],
+            anchor="w"
+        )
+        self.fields_count_label.grid(row=1, column=0, sticky="w", padx=20, pady=4)
+
+        self.variables_label = ctk.CTkLabel(
+            self.info_frame,
+            text="🏷️ Переменные: (пусто)",
+            font=(ModernTheme.FONT['family'], ModernTheme.FONT['size_sm']),
+            text_color=self.theme['accent_info'],
+            anchor="w",
+            wraplength=900
+        )
+        self.variables_label.grid(row=2, column=0, sticky="w", padx=20, pady=(4, 16))
+
+        # Показывать info_frame всегда (не скрывать по умолчанию)
+        # self.info_frame.grid_remove()  # УДАЛЕНО - теперь всегда виден
+
         # === TABLE CONTAINER ===
         table_container = ctk.CTkFrame(
             self,
@@ -203,7 +245,7 @@ class DataTab(ctk.CTkFrame):
             border_width=1,
             border_color=self.theme['border_primary']
         )
-        table_container.grid(row=1, column=0, sticky="nsew", padx=32, pady=(0, 32))
+        table_container.grid(row=2, column=0, sticky="nsew", padx=32, pady=(0, 32))  # row 2 (было 1)
         table_container.grid_columnconfigure(0, weight=1)
         table_container.grid_rowconfigure(1, weight=1)
 
@@ -247,6 +289,21 @@ class DataTab(ctk.CTkFrame):
 
         # ПОСЛЕ очистки заполнить self.rows (копия для безопасности)
         self.rows = [row.copy() if isinstance(row, list) else list(row) for row in rows]
+
+        # Обновить информацию о полях (Шаг 2)
+        if headers:
+            self.fields_count_label.configure(text=f"📋 Количество полей: {len(headers)}")
+
+            # Форматировать список переменных (обрезать если слишком длинный)
+            variables_str = ', '.join(headers)
+            if len(variables_str) > 100:
+                variables_str = variables_str[:100] + "..."
+
+            self.variables_label.configure(text=f"🏷️ Переменные: {variables_str}")
+        else:
+            # Если данных нет, показать placeholder
+            self.fields_count_label.configure(text="📋 Количество полей: 0")
+            self.variables_label.configure(text="🏷️ Переменные: (импортируйте Playwright код для автоматического извлечения полей)")
 
         # Создать заголовки
         self.create_header_row()
