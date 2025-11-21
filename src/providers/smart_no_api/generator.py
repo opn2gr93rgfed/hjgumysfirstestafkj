@@ -29,6 +29,10 @@ class Generator:
         proxy_config = config.get('proxy', {})
         profile_config = config.get('profile', {})
 
+        # 🔥 СИМУЛЯЦИЯ ВВОДА ТЕКСТА
+        self.simulate_typing = config.get('simulate_typing', True)
+        self.typing_delay = config.get('typing_delay', 100)
+
         script = self._generate_imports()
         script += self._generate_config(api_token, csv_filename, csv_data, csv_embed_mode, proxy_config)
         script += self._generate_octobrowser_functions(profile_config, proxy_config)
@@ -636,6 +640,26 @@ def load_csv_data() -> List[Dict]:
         # Wrap all actions in resilient try-except blocks for dynamic flows
         return self._wrap_actions_for_resilience(cleaned_code)
 
+    def _replace_fill_with_typing(self, code: str) -> str:
+        """
+        Замена .fill() на .press_sequentially() для симуляции человеческого ввода
+
+        Args:
+            code: Строка кода Playwright
+
+        Returns:
+            Код с замененным .fill() на .press_sequentially(delay=X)
+        """
+        if not self.simulate_typing or '.fill(' not in code:
+            return code
+
+        import re
+        # Заменить .fill(...) на .press_sequentially(..., delay=X)
+        # Паттерн: .fill("text") или .fill('text') или .fill(variable)
+        pattern = r'\.fill\(([^)]+)\)'
+        replacement = f'.press_sequentially(\\1, delay={self.typing_delay})'
+        return re.sub(pattern, replacement, code)
+
     def _wrap_actions_for_resilience(self, code: str) -> str:
         """
         Обернуть все Playwright действия в try-except для resilience
@@ -763,6 +787,9 @@ def load_csv_data() -> List[Dict]:
                 # Playwright Recorder can generate code with curly quotes like "Let's go"
                 sanitized_code = stripped.replace("'", "'").replace("'", "'")
 
+                # 🔥 Replace .fill() with .press_sequentially() for human typing simulation
+                sanitized_code = self._replace_fill_with_typing(sanitized_code)
+
                 wrapped_lines.append(f"{indent_str}try:")
                 wrapped_lines.append(f"{indent_str}    {sanitized_code}")
                 wrapped_lines.append(f"{indent_str}except PlaywrightTimeout:")
@@ -774,6 +801,9 @@ def load_csv_data() -> List[Dict]:
                 action_desc = self._extract_action_description(stripped)
                 action_desc = action_desc.replace("'", "'").replace("'", "'").replace('"', '\\"')
                 sanitized_code = stripped.replace("'", "'").replace("'", "'")
+
+                # 🔥 Replace .fill() with .press_sequentially() for human typing simulation
+                sanitized_code = self._replace_fill_with_typing(sanitized_code)
 
                 # Extract page variable and selector for smart handling
                 import re
@@ -847,6 +877,9 @@ def load_csv_data() -> List[Dict]:
                 # Keep as-is (critical actions or non-actions)
                 # But still sanitize curly quotes in critical code
                 sanitized_line = line.replace("'", "'").replace("'", "'")
+
+                # 🔥 Replace .fill() with .press_sequentially() for human typing simulation
+                sanitized_line = self._replace_fill_with_typing(sanitized_line)
 
                 # Check for special command comments (e.g., #pause10, #scrolldown)
                 if stripped.startswith('#'):

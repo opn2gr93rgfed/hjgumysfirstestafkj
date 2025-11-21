@@ -632,6 +632,35 @@ class ModernAppV3(ctk.CTk):
             text_color=self.theme['text_secondary']
         ).grid(row=2, column=2, padx=(5, 15), pady=10, sticky="w")
 
+        # Симуляция ввода текста
+        self.simulate_typing_var = tk.BooleanVar(value=True)  # По умолчанию включено
+        simulate_typing_checkbox = ctk.CTkCheckBox(
+            timeouts_frame,
+            text="Симуляция ввода текста:",
+            variable=self.simulate_typing_var,
+            font=(ModernTheme.FONT['family'], 11),
+            text_color=self.theme['text_primary'],
+            fg_color=self.theme['accent_primary'],
+            hover_color=self.theme['accent_secondary']
+        )
+        simulate_typing_checkbox.grid(row=3, column=0, padx=(15, 5), pady=10, sticky="w")
+
+        self.typing_delay_var = tk.StringVar(value="100")
+        typing_delay_entry = ctk.CTkEntry(
+            timeouts_frame,
+            textvariable=self.typing_delay_var,
+            width=60,
+            font=(ModernTheme.FONT['family'], 11)
+        )
+        typing_delay_entry.grid(row=3, column=1, padx=5, pady=10, sticky="ew")
+
+        ctk.CTkLabel(
+            timeouts_frame,
+            text="мс между символами (50-200 для естественности)",
+            font=(ModernTheme.FONT['family'], 9),
+            text_color=self.theme['text_secondary']
+        ).grid(row=3, column=2, padx=(5, 15), pady=10, sticky="w")
+
         # ========== КНОПКИ ДЕЙСТВИЙ (АДАПТИВНЫЙ LAYOUT 2x3) ==========
         btn_frame = ctk.CTkFrame(tab, fg_color="transparent")
         btn_frame.grid(row=4, column=0, sticky="ew", padx=24, pady=(8, 24))
@@ -1003,7 +1032,10 @@ class ModernAppV3(ctk.CTk):
                 'use_sms': False,  # Пока отключено
                 'sms': self.config.get('sms', {}),
                 # 🔥 ДОБАВЛЯЕМ НАСТРОЙКИ ПРОФИЛЯ
-                'profile': profile_config
+                'profile': profile_config,
+                # 🔥 СИМУЛЯЦИЯ ВВОДА ТЕКСТА
+                'simulate_typing': self.simulate_typing_var.get(),
+                'typing_delay': int(self.typing_delay_var.get()) if self.typing_delay_var.get().isdigit() else 100
             }
 
             print(f"[DEBUG] API Token: {config['api_token'][:10]}..." if config['api_token'] else "[DEBUG] API Token: пуст")  # DEBUG
