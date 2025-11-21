@@ -801,17 +801,17 @@ def load_csv_data() -> List[Dict]:
                     # Extract the element locator part (everything before .click())
                     click_pos = stripped.find('.click()')
                     element_part = stripped[:click_pos].strip()
-                    wrapped_lines.append(f"{indent_str}        # Scroll element into view if needed")
+                    wrapped_lines.append(f"{indent_str}        # Try to scroll element into view if needed")
                     wrapped_lines.append(f"{indent_str}        try:")
-                    wrapped_lines.append(f"{indent_str}            element = {element_part}")
-                    wrapped_lines.append(f"{indent_str}            element.scroll_into_view_if_needed(timeout=3000)")
+                    wrapped_lines.append(f"{indent_str}            _element = {element_part}")
+                    wrapped_lines.append(f"{indent_str}            _element.scroll_into_view_if_needed(timeout=3000)")
                     wrapped_lines.append(f"{indent_str}            time.sleep(0.2)  # Wait for scroll animation")
                     wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] Element scrolled into view", flush=True)')
                     wrapped_lines.append(f"{indent_str}        except:")
-                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [WARNING] Could not scroll element into view, attempting anyway...", flush=True)')
+                    wrapped_lines.append(f'{indent_str}            print(f"[POPUP_ACTION] [WARNING] Could not scroll element, will try with original selector", flush=True)')
                     wrapped_lines.append(f"{indent_str}            pass")
-                    # Replace original code with element.click() since we already have element
-                    wrapped_lines.append(f"{indent_str}        element.click()")
+                    # Always use original code for reliability
+                    wrapped_lines.append(f"{indent_str}        {sanitized_code}")
                 else:
                     wrapped_lines.append(f"{indent_str}        {sanitized_code}")
 
